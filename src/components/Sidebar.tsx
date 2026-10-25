@@ -3,6 +3,7 @@ import { Pressable, ScrollView, View } from 'react-native';
 
 import { TABS, type TabItem } from '../navigation/tabs';
 import { useTheme } from '../theme/ThemeProvider';
+import { AeroFluxMark } from './AeroFluxMark';
 import { Icon } from './Icon';
 import { Eyebrow } from './ui/Surfaces';
 import { T } from './ui/T';
@@ -16,8 +17,19 @@ function Brand() {
   const { c } = useTheme();
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 8 }}>
-      <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' }}>
-        <Icon name="brand" size={22} color="#FFFFFF" />
+      <View
+        style={{
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          backgroundColor: c.card,
+          borderWidth: 1,
+          borderColor: c.line,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <AeroFluxMark width={30} />
       </View>
       <View>
         <T size={17} weight={800} tracking={-0.01}>

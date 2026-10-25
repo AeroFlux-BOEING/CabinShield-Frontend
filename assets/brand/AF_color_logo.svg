@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-10 -6 560 140" width="1120" height="280"><g transform="scale(0.85) translate(0,10)"><defs><linearGradient id="g" gradientUnits="userSpaceOnUse" x1="0" y1="130" x2="210" y2="0"><stop offset="0" stop-color="#0B2E73"/><stop offset="1" stop-color="#2AA7F5"/></linearGradient></defs><mask id="m" maskUnits="userSpaceOnUse" x="-50" y="-20" width="300" height="180">
+<rect x="-50" y="-20" width="300" height="180" fill="#fff"/>
+<path d="M-6 116 C 28 74, 70 62, 124 62 L 186 62 L 186 84 L 126 84 C 84 84, 44 94, -6 116 Z" fill="#000" stroke="#000" stroke-width="12" stroke-linejoin="round" transform="skewX(-16) translate(36,0)"/></mask>
+<g mask="url(#m)"><g transform="skewX(-16) translate(36,0)" fill="url(#g)">
+<polygon points="4,120 60,8 82,8 110,120 84,120 66,48 32,120"/>
+<rect x="116" y="8" width="26" height="112"/>
+<polygon points="116,8 196,8 190,32 116,32"/></g></g>
+<g transform="skewX(-16) translate(36,0)"><path d="M-6 116 C 28 74, 70 62, 124 62 L 186 62 L 186 84 L 126 84 C 84 84, 44 94, -6 116 Z" fill="url(#g)"/></g></g><text x="205" y="88" font-family="Montserrat, Helvetica Neue, Arial, sans-serif" font-size="56" font-style="italic" letter-spacing="1"><tspan font-weight="900" fill="#0B2545">AERO</tspan><tspan font-weight="400" fill="#2A8FE0">FLUX</tspan></text></svg>

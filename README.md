@@ -43,6 +43,12 @@ src/
   hooks/                  # useResponsive(760/560 breakpoint), usePngExport
 ```
 
+## 브랜드
+
+- 원본: `assets/brand/AF_color_logo.svg`(컬러 로고), `assets/brand/AF_mono_icon.svg`(단색 아이콘)
+- 앱 안 로고: `src/components/AeroFluxMark.tsx` (react-native-svg 벡터, `color` prop으로 단색 가능)
+- `assets/icon.png`, `splash-icon.png`, `favicon.png`, `android-icon-*.png`는 위 SVG에서 생성한 AF 마크
+
 ## Safety Kernel
 
 `CSM = TTA − CST − Safety Buffer`
