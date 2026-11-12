@@ -2,6 +2,7 @@
  * Simulated flight physics and forecast turbulence areas along ICN → SFO.
  * All values are illustrative demo values, not operational data.
  */
+import { tx, type Txt } from '../i18n/LangContext';
 import { D2R, destination, posAt, ROUTE_NM, trackAt, type LatLon } from './geo';
 
 /** Mean planning ground speed (kt) used for ETAs and far-ahead timing. */
@@ -30,7 +31,7 @@ export function flightLevel(d: number): number {
 
 export interface Hazard {
   idx: number;
-  name: string;
+  name: Txt;
   fl: [number, number];
   f: number;
   off: number;
@@ -44,13 +45,13 @@ export interface Hazard {
 }
 
 /** Strength labels for ring 1–3. */
-export const STRENGTH = ['', '약함', '보통', '심함'] as const;
+export const STRENGTH: Txt[] = [tx('', ''), tx('약함', 'light'), tx('보통', 'moderate'), tx('심함', 'severe')];
 const RING = [1, 0.66, 0.33];
 
 const DEFS = [
-  { name: '후쿠오카 FIR · 일본 북부 해상', fl: [300, 400] as [number, number], f: 0.2, off: -55, r: 120, kt: 18, shape: [1, 0.8, 1.15, 0.9, 1.2, 0.85, 1.05, 0.95] },
-  { name: '앵커리지 해양 · 알류샨 남쪽', fl: [320, 410] as [number, number], f: 0.5, off: 30, r: 150, kt: 25, shape: [0.9, 1.1, 1, 1.25, 0.85, 1, 1.15, 0.8] },
-  { name: '오클랜드 해양 · 미국 서해안 앞', fl: [280, 400] as [number, number], f: 0.81, off: -85, r: 110, kt: 15, shape: [1.1, 0.9, 1, 0.8, 1.15, 1.05, 0.9, 1] },
+  { name: tx('후쿠오카 FIR · 일본 북부 해상', 'Fukuoka FIR · off northern Japan'), fl: [300, 400] as [number, number], f: 0.2, off: -55, r: 120, kt: 18, shape: [1, 0.8, 1.15, 0.9, 1.2, 0.85, 1.05, 0.95] },
+  { name: tx('앵커리지 해양 · 알류샨 남쪽', 'Anchorage Oceanic · south of the Aleutians'), fl: [320, 410] as [number, number], f: 0.5, off: 30, r: 150, kt: 25, shape: [0.9, 1.1, 1, 1.25, 0.85, 1, 1.15, 0.8] },
+  { name: tx('오클랜드 해양 · 미국 서해안 앞', 'Oakland Oceanic · off the US West Coast'), fl: [280, 400] as [number, number], f: 0.81, off: -85, r: 110, kt: 15, shape: [1.1, 0.9, 1, 0.8, 1.15, 1.05, 0.9, 1] },
 ];
 
 export const HAZARDS: Hazard[] = DEFS.map((h, idx) => {

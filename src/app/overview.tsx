@@ -1,11 +1,12 @@
 import { Row, Screen } from '../components/Screen';
+import { AiDecisionCard } from '../components/crew/AiCards';
 import { FlightMap } from '../components/crew/FlightMap';
 import { HistoryCard, InsightCard } from '../components/crew/HistoryInsight';
 import { InfoTodoCard } from '../components/crew/InfoTodoCard';
 import { PointBanner } from '../components/crew/PointBanner';
 import { RouteBar } from '../components/crew/RouteBar';
 
-/** 운항 현황: whole flight, current point, map with live data or checklist, past data and AI insight. */
+/** 운항 현황: whole flight, current point, map with live data or checklist, on-device AI decision, past data and AI insight. */
 export default function Overview() {
   return (
     <Screen>
@@ -15,6 +16,7 @@ export default function Overview() {
         <FlightMap />
         <InfoTodoCard />
       </Row>
+      <AiDecisionCard />
       <Row weights={[1.15, 1]} breakAt={900}>
         <HistoryCard />
         <InsightCard />

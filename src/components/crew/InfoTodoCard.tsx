@@ -1,13 +1,14 @@
 import { Pressable, View } from 'react-native';
 
 import { ROUTE_NM, trackAt } from '../../domain/geo';
+import { useLang } from '../../i18n/LangContext';
 import { useFlight } from '../../state/FlightContext';
 import { todoView } from '../../state/crewView';
 import { useTheme } from '../../theme/ThemeProvider';
 import { CardHead, Card, Tag, Tile } from '../ui/Surfaces';
 import { T } from '../ui/T';
 
-const DIRS = ['북', '북동', '동', '남동', '남', '남서', '서', '북서'];
+const DIRS = [['북', 'N'], ['북동', 'NE'], ['동', 'E'], ['남동', 'SE'], ['남', 'S'], ['남서', 'SW'], ['서', 'W'], ['북서', 'NW']] as const;
 const dm = (v: number) => {
   const a = Math.abs(v);
   return `${Math.floor(a)}°${((a % 1) * 60).toFixed(1).padStart(4, '0')}'`;
@@ -17,7 +18,8 @@ const dm = (v: number) => {
 export function InfoTodoCard() {
   const { c } = useTheme();
   const { sim, refresh } = useFlight();
-  const todo = todoView(sim);
+  const { lang, L } = useLang();
+  const todo = todoView(sim, lang);
 
   if (todo) {
     return (
@@ -28,7 +30,7 @@ export function InfoTodoCard() {
             const on = !!sim.done[i];
             return (
               <Pressable
-                key={t}
+                key={i}
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: on }}
                 onPress={() => { sim.toggleDone(i); refresh(); }}
@@ -52,23 +54,24 @@ export function InfoTodoCard() {
 
   const p = sim.position, fl = sim.flightLevel, tr = trackAt(sim.estD);
   const gs = sim.groundSpeedShown;
+  const dir = DIRS[Math.round(tr / 45) % 8];
   const rows: [string, string, string][] = [
-    ['위도', dm(p.lat), p.lat >= 0 ? 'N' : 'S'],
-    ['경도', p.lon <= 180 ? dm(p.lon) : dm(360 - p.lon), p.lon <= 180 ? 'E' : 'W'],
-    ['고도', (Math.round(fl) * 100).toLocaleString(), 'ft'],
-    ['속도', String(Math.round(gs)), `kt · ${Math.round(gs * 1.852).toLocaleString()} km/h`],
-    ['진행 방향', String(Math.round(tr) % 360).padStart(3, '0') + '°', DIRS[Math.round(tr / 45) % 8]],
-    ['샌프란시스코까지', Math.round(ROUTE_NM - sim.estD).toLocaleString(), 'NM'],
+    [L('위도', 'Latitude'), dm(p.lat), p.lat >= 0 ? 'N' : 'S'],
+    [L('경도', 'Longitude'), p.lon <= 180 ? dm(p.lon) : dm(360 - p.lon), p.lon <= 180 ? 'E' : 'W'],
+    [L('고도', 'Altitude'), (Math.round(fl) * 100).toLocaleString(), 'ft'],
+    [L('속도', 'Ground speed'), String(Math.round(gs)), `kt · ${Math.round(gs * 1.852).toLocaleString()} km/h`],
+    [L('진행 방향', 'Heading'), String(Math.round(tr) % 360).padStart(3, '0') + '°', lang === 'ko' ? dir[0] : dir[1]],
+    [L('샌프란시스코까지', 'To San Francisco'), Math.round(ROUTE_NM - sim.estD).toLocaleString(), 'NM'],
   ];
   return (
     <Card style={{ flex: 1 }}>
-      <CardHead title="현재 비행 정보" right={<Tag tone={sim.aid ? 'ok' : 'p2'}>{sim.aid ? '위치 실시간' : '예측 위치'}</Tag>} />
+      <CardHead title={L('현재 비행 정보', 'Current flight data')} right={<Tag tone={sim.aid ? 'ok' : 'p2'}>{sim.aid ? L('위치 실시간', 'Live position') : L('예측 위치', 'Estimated position')}</Tag>} />
       <View style={{ flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
         {rows.map(([k, v, u]) => (
           <Tile key={k} label={k} value={v} unit={u} style={{ flexBasis: '46%', flexGrow: 1, minHeight: 84 }} />
         ))}
       </View>
-      <T size={13} color={c.ink2}>포인트 준비가 시작되면 이 자리에 지금 할 일이 나타납니다.</T>
+      <T size={13} color={c.ink2}>{L('포인트 준비가 시작되면 이 자리에 지금 할 일이 나타납니다.', 'When a point starts, the to-do list appears here.')}</T>
     </Card>
   );
 }

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { ScrollView, View } from 'react-native';
 
 import { useResponsive } from '../hooks/useResponsive';
+import { useLang } from '../i18n/LangContext';
 import { useTheme } from '../theme/ThemeProvider';
 import { TopBar } from './TopBar';
 import { T } from './ui/T';
@@ -10,6 +11,7 @@ import { T } from './ui/T';
 export function Screen({ title, desc, children }: { title?: string; desc?: string; children: ReactNode }) {
   const { c } = useTheme();
   const { compact } = useResponsive();
+  const { L } = useLang();
   const pad = compact ? 16 : 22;
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: pad, paddingTop: compact ? 8 : 18, gap: 16, paddingBottom: 32 }}>
@@ -21,7 +23,7 @@ export function Screen({ title, desc, children }: { title?: string; desc?: strin
         </View>
       ) : null}
       {children}
-      <T size={12} color={c.ink2} align="center">가정 시나리오 데모입니다. 비행 경로, 바람, 흔들림 예보는 모두 시뮬레이션 값이고, 행동 문구는 설명용 예시입니다. 실제 운항에서는 항공사 절차와 조종실 지시를 따릅니다.</T>
+      <T size={12} color={c.ink2} align="center">{L('가정 시나리오 데모입니다. 비행 경로, 바람, 흔들림 예보는 모두 시뮬레이션 값이고, 행동 문구는 설명용 예시입니다. 실제 운항에서는 항공사 절차와 조종실 지시를 따릅니다.', 'Demo scenario. Route, winds and turbulence forecasts are simulated and the action texts are examples. In real operations, follow airline procedures and flight deck instructions.')}</T>
     </ScrollView>
   );
 }

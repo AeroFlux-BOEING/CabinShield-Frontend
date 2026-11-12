@@ -38,6 +38,10 @@ src/
     content.ts            # 포인트별 할 일·방송 문구, 과거 보고, 공항, 승무원, 서비스
     planner.ts            # 서비스 타이밍 플래너
     schedule.ts           # 가상 AFX 운항 스케줄 (편명 → 노선 자동 입력)
+  ai/                     # 온디바이스 AI (앱 안에서만 실행, 네트워크 불필요)
+    cstWeights.ts         # 정리 시간 예측 MLP 38→32→16→3 가중치 (1,827 파라미터, sim787 데이터로 학습)
+    cstModel.ts           # 순수 TS 추론 + Safety Kernel (CSM = Q_low − (CST̂+마진) − 버퍼) + 자체 점검
+    cabinState.ts         # 서비스 계획·휴식·체크리스트로 객실 상태(38개 특성) 구성
   state/
     FlightSim.ts          # 시뮬레이션 상태 (위치 추정, 포인트 단계, 서비스 계획, 로그)
     FlightContext.tsx     # 0.2초마다 시뮬레이션을 돌리고 화면 갱신
@@ -62,3 +66,10 @@ src/
 
 `vercel.json` 포함: Vercel에서 이 저장소를 연결하면 `expo export -p web` → `dist/`가 배포됩니다.
 기존 Vercel 프로젝트(단일 HTML)를 교체할지 여부는 직접 결정하세요.
+
+## Language (EN / 한국어)
+
+The app defaults to English. Use the **EN / 한국어** toggle in the top bar (or in the flight setup sheet) to switch.
+Every user-facing string is stored as `Txt { ko, en }` (`src/i18n/LangContext.tsx`). Components read it with
+`useLang()` → `L(ko, en)` for inline strings and `P(txt)` for content objects. Formatting helpers (minutes, dates,
+weekdays, countdowns) live in `src/i18n/format.ts`.

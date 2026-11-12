@@ -2,13 +2,14 @@
  * Service timing planner: moves or simplifies cabin services so they do not overlap forecast
  * turbulence segments (plus a lead-time dependent buffer). Started services are frozen.
  */
+import { tx, type Txt } from '../i18n/LangContext';
 import { SERVICES, type ServiceDef } from './content';
 import type { Exposure } from './flight';
 
 export interface PlannedService extends ServiceDef {
   start: number | null;
   end: number | null;
-  mode: '정상' | '간소화' | '생략' | '사무장 결정';
+  mode: 'normal' | 'simplified' | 'skipped' | 'purser';
   shift: number;
 }
 
@@ -35,13 +36,20 @@ export function planServices(now: number, eta: number, ex: Exposure[], prev: Pla
         }
       return null;
     };
-    let r = tryMode(sv.dur), mode: PlannedService['mode'] = '정상', dur = sv.dur;
+    let r = tryMode(sv.dur), mode: PlannedService['mode'] = 'normal', dur = sv.dur;
     if (sv.simp && (!r || Math.abs(r.shift) > 3600)) {
       const r2 = tryMode(sv.simp);
-      if (r2 && (!r || Math.abs(r2.shift) < Math.abs(r.shift))) { r = r2; mode = '간소화'; dur = sv.simp; }
+      if (r2 && (!r || Math.abs(r2.shift) < Math.abs(r.shift))) { r = r2; mode = 'simplified'; dur = sv.simp; }
     }
-    if (!r) return { ...sv, start: null, end: null, mode: sv.optional ? '생략' : '사무장 결정', shift: 0 };
+    if (!r) return { ...sv, start: null, end: null, mode: sv.optional ? 'skipped' : 'purser', shift: 0 };
     prevEnd = r.st + dur;
     return { ...sv, start: r.st, end: r.st + dur, mode, shift: r.shift };
   });
 }
+
+export const MODE_LABEL: Record<PlannedService['mode'], Txt> = {
+  normal: tx('정상', 'Normal'),
+  simplified: tx('간소화', 'Simplified'),
+  skipped: tx('생략', 'Skipped'),
+  purser: tx('사무장 결정', 'Purser decides'),
+};

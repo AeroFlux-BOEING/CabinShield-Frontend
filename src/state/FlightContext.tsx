@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
+import type { Txt } from '../i18n/LangContext';
 import { FlightSim } from './FlightSim';
 
 interface FlightCtx {
@@ -7,7 +8,7 @@ interface FlightCtx {
   /** increments on every UI refresh; read it to subscribe */
   version: number;
   refresh: () => void;
-  toast: string | null;
+  toast: Txt | null;
   dismissToast: () => void;
 }
 
@@ -19,7 +20,7 @@ export function FlightProvider({ children }: { children: ReactNode }) {
   if (!simRef.current) simRef.current = new FlightSim();
   const sim = simRef.current;
   const [version, setVersion] = useState(0);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<Txt | null>(null);
   const refresh = useCallback(() => setVersion((v) => v + 1), []);
 
   useEffect(() => {

@@ -3,30 +3,31 @@
  * look-ahead, crew point stage (T-23 / T-13 / T-5), service plan and alert log.
  * UI components read it through FlightContext, which re-renders a few times per second.
  */
+import { NO_ACTIONS, type CabinActions } from '../ai/cabinState';
+import { minutesTx, pad } from '../i18n/format';
+import { tx, type Txt } from '../i18n/LangContext';
 import { POINTS } from '../domain/content';
 import {
   exposures, flightLevel, groundSpeed, lookAhead, PLAN_GS, START_NM, timeForDistance,
   type Exposure, type LookAhead,
 } from '../domain/flight';
 import { posAt, ROUTE_NM } from '../domain/geo';
-import { planServices, type PlannedService } from '../domain/planner';
+import { MODE_LABEL, planServices, type PlannedService } from '../domain/planner';
 
 export interface FlightInfo {
   no: string;
-  /** "11월 12일" */
-  dateLabel: string;
+  /** departure date (local) */
+  date: Date;
   /** departure, seconds after 00:00 UTC */
   depUtc: number;
 }
 
 export interface LogEntry {
   t: number;
-  msg: string;
+  msg: Txt;
 }
 
 export type Speed = 10 | 60 | 300;
-
-const pad = (n: number) => String(n).padStart(2, '0');
 
 export class FlightSim {
   flight: FlightInfo | null = null;
@@ -52,10 +53,13 @@ export class FlightSim {
   ex: Exposure[] = [];
   plan: PlannedService[] | null = null;
   log: LogEntry[] = [];
+  /** what the crew has already done in the cabin (from checklist ticks); feeds the on-device model */
+  cabin: CabinActions = { ...NO_ACTIONS };
+  private lastService: string | null = null;
   private lastPlanT = -1e9;
   private forecastHazard: unknown = null;
   private started = false;
-  onToast: ((msg: string) => void) | null = null;
+  onToast: ((msg: Txt) => void) | null = null;
 
   constructor() {
     this.reset();
@@ -96,8 +100,9 @@ export class FlightSim {
     const t = timeForDistance(START_NM), g = groundSpeed(START_NM, t);
     Object.assign(this, {
       t, d: START_NM, gs: g, gsEst: g, estD: START_NM, sigma: 0.05, lossD: 0, aid: true, sat: true, lastUplink: t,
-      look: null, cur: 0, g: 0, afterUntil: -1, near: false, arrived: false, done: {}, ex: [], plan: null, log: [],
+      look: null, cur: 0, g: 0, afterUntil: -1, near: false, arrived: false, done: {}, ex: [], plan: null, log: [], cabin: { ...NO_ACTIONS },
     });
+    this.lastService = null;
     this.lastPlanT = -1e9;
     this.forecastHazard = null;
     this.started = false;
@@ -107,19 +112,19 @@ export class FlightSim {
     this.flight = flight;
     this.reset();
     this.running = true;
-    this.addLog(`${flight.no} 비행편 시작 · 인천 ${this.clock(0)} UTC 출발`);
-    this.addLog('비행 중 · 순항 고도 도달');
+    this.addLog(tx(`${flight.no} 비행편 시작 · 인천 ${this.clock(0)} UTC 출발`, `${flight.no} started · departed Incheon ${this.clock(0)} UTC`));
+    this.addLog(tx('비행 중 · 순항 고도 도달', 'In flight · reached cruise altitude'));
     this.evaluate();
     this.updatePlan(true);
     this.started = true;
   }
 
-  addLog(msg: string) {
+  addLog(msg: Txt) {
     this.log.unshift({ t: this.t, msg });
     if (this.log.length > 60) this.log.pop();
   }
 
-  private toast(msg: string) {
+  private toast(msg: Txt) {
     this.onToast?.(msg);
   }
 
@@ -141,7 +146,7 @@ export class FlightSim {
     if (this.d >= ROUTE_NM && !this.arrived) {
       this.arrived = true;
       this.running = false;
-      this.addLog('샌프란시스코 도착');
+      this.addLog(tx('샌프란시스코 도착', 'Arrived in San Francisco'));
     }
   }
 
@@ -163,10 +168,10 @@ export class FlightSim {
     const cur = L ? L.cur : 0;
     if (cur > 0 !== this.cur > 0) {
       if (cur > 0) {
-        this.addLog('난기류 구간 진입 · 3포인트 착석 유지');
-        this.toast('난기류 구간입니다 · 착석 유지');
+        this.addLog(tx('난기류 구간 진입 · 3포인트 착석 유지', 'Entered turbulence segment · Point 3, stay seated'));
+        this.toast(tx('난기류 구간입니다 · 착석 유지', 'Turbulence segment · stay seated'));
       } else {
-        this.addLog('난기류 구간을 벗어났습니다');
+        this.addLog(tx('난기류 구간을 벗어났습니다', 'Left the turbulence segment'));
         this.afterUntil = this.t + 600;
       }
     }
@@ -175,15 +180,22 @@ export class FlightSim {
     const g = cur > 0 ? 3 : tE == null ? 0 : tE <= POINTS[2].lead ? 3 : tE <= POINTS[1].lead ? 2 : tE <= POINTS[0].lead ? 1 : 0;
     if (L && L.h !== this.forecastHazard && cur === 0) {
       this.forecastHazard = L.h;
-      this.addLog(`다음 난기류 구간 확인 · ${minutesText(L.first[1])} 뒤`);
+      const m = minutesTx(L.first[1]);
+      this.addLog(tx(`다음 난기류 구간 확인 · ${m.ko} 뒤`, `Next turbulence segment found · in ${m.en}`));
     }
     if (this.started && g > this.g && cur === 0 && tE != null) {
       const P = POINTS[g - 1];
-      this.addLog(`${g}포인트 시작 · ${P.name} · 구간 진입 ${minutesText(tE)} 전`);
-      this.toast(`${g}포인트 · ${P.name} 단계가 시작됐어요`);
+      const m = minutesTx(tE);
+      this.addLog(tx(`${g}포인트 시작 · ${P.name.ko} · 구간 진입 ${m.ko} 전`, `Point ${g} started · ${P.name.en} · ${m.en} before the segment`));
+      this.toast(tx(`${g}포인트 · ${P.name.ko} 단계가 시작됐어요`, `Point ${g} · ${P.name.en} has started`));
     }
     if (g !== this.g) this.done = {};
     this.g = g;
+    const svc = this.plan?.find((v) => v.start != null && v.end != null && this.t >= v.start && this.t < v.end)?.id ?? null;
+    if (svc !== this.lastService) {
+      if (svc) this.cabin = { ...NO_ACTIONS };
+      this.lastService = svc;
+    }
     this.near = !!L && (L.cur > 0 || L.first[1] <= 1560);
   }
 
@@ -196,7 +208,9 @@ export class FlightSim {
       for (const n of np) {
         const o = this.plan.find((q) => q.id === n.id);
         if (o && (o.start !== n.start || o.mode !== n.mode) && !(o.start != null && o.start <= this.t)) {
-          this.addLog(`${n.name} 시간 변경 · ${o.start != null ? this.clock(o.start) : '—'} → ${n.start != null ? this.clock(n.start) : n.mode}${n.mode === '간소화' ? ' (간소화)' : ''}`);
+          const from = o.start != null ? this.clock(o.start) : '—';
+          const to = (l: 'ko' | 'en') => (n.start != null ? this.clock(n.start) : MODE_LABEL[n.mode][l]) + (n.mode === 'simplified' ? ` (${MODE_LABEL.simplified[l]})` : '');
+          this.addLog(tx(`${n.name.ko} 시간 변경 · ${from} → ${to('ko')}`, `${n.name.en} moved · ${from} → ${to('en')}`));
         }
       }
     }
@@ -214,22 +228,22 @@ export class FlightSim {
     if (this.aid) {
       this.aid = false;
       this.lossD = this.d;
-      this.addLog('비행기 위치 신호 끊김 · 예측 위치로 계산 시작');
+      this.addLog(tx('비행기 위치 신호 끊김 · 예측 위치로 계산 시작', 'Aircraft position signal lost · estimating position'));
     } else {
       this.aid = true;
       this.estD = this.d;
-      this.addLog('비행기 위치 신호 복구');
+      this.addLog(tx('비행기 위치 신호 복구', 'Aircraft position signal restored'));
     }
     this.evaluate();
   }
   toggleSat() {
     if (this.sat) {
       this.sat = false;
-      this.addLog('지상 연결 끊김 · 태블릿이 혼자 판단 중');
+      this.addLog(tx('지상 연결 끊김 · 태블릿이 혼자 판단 중', 'Ground link lost · tablet deciding on its own'));
     } else {
       this.sat = true;
       this.lastUplink = this.t;
-      this.addLog('지상 연결 복구 · 최신 흔들림 예보 받음');
+      this.addLog(tx('지상 연결 복구 · 최신 흔들림 예보 받음', 'Ground link restored · latest forecast received'));
       this.lastPlanT = -1e9;
     }
     this.evaluate();
@@ -242,8 +256,8 @@ export class FlightSim {
       if (d > ROUTE_NM) break;
       if (lookAhead(d, this.t + s, this.gs)?.cur) { found = s; break; }
     }
-    if (found === null) return this.addLog('남은 비행에 예상되는 흔들림이 없습니다');
-    if (found <= 1800) return this.addLog('다음 구역이 이미 30분 안에 있습니다');
+    if (found === null) return this.addLog(tx('남은 비행에 예상되는 흔들림이 없습니다', 'No turbulence expected for the rest of the flight'));
+    if (found <= 1800) return this.addLog(tx('다음 구역이 이미 30분 안에 있습니다', 'Next segment is already within 30 min'));
     const adv = found - 1800;
     this.d += (this.gs * adv) / 3600;
     this.t += adv;
@@ -260,7 +274,29 @@ export class FlightSim {
     this.start(this.flight);
   }
   toggleDone(i: number) {
-    this.done = { ...this.done, [i]: !this.done[i] };
+    const on = !this.done[i];
+    this.done = { ...this.done, [i]: on };
+    // checklist ticks change the cabin state the on-device model sees
+    const map: Record<number, Record<number, (keyof CabinActions)[]>> = {
+      2: { 0: ['serviceStopped'], 1: ['cartsSecured', 'galleySecured'], 2: ['hotStowed'], 4: ['lavsCleared'] },
+      3: { 0: ['serviceStopped'], 1: ['cartsSecured', 'galleySecured', 'hotStowed'], 2: ['lavsCleared'] },
+    };
+    const keys = this.cur === 0 ? map[this.g]?.[i] : undefined;
+    if (keys) {
+      const next = { ...this.cabin };
+      for (const k of keys) next[k] = on;
+      this.cabin = next;
+    }
+  }
+
+  /** Conservative time available before the segment (s): TTA − 1.28σ. 0 inside, null when nothing ahead. */
+  get qLow(): number | null {
+    if (this.cur > 0) return 0;
+    const tE = this.tEntry;
+    if (tE == null) return null;
+    const sigmaNm = Math.hypot(5 + (3 * (this.t - this.lastUplink)) / 3600, this.sigma);
+    const sigmaS = (sigmaNm / Math.max(this.groundSpeedShown, 200)) * 3600;
+    return Math.max(0, tE - 1.28 * sigmaS);
   }
 
   /* ---------- derived ---------- */
@@ -272,17 +308,4 @@ export class FlightSim {
   }
 }
 
-export const minutesText = (s: number) => (s < 90 ? '1분 이내' : '약 ' + Math.round(s / 60) + '분');
-export const hoursText = (s: number) => {
-  const m = Math.round(s / 60);
-  return m >= 60 ? Math.floor(m / 60) + '시간 ' + (m % 60) + '분' : m + '분';
-};
-export const hm = (s: number) => {
-  const m = Math.max(0, Math.round(s / 60));
-  return Math.floor(m / 60) + ':' + pad(m % 60);
-};
-export const mmss = (s: number) => {
-  const x = Math.max(0, Math.round(s));
-  return x >= 600 ? { big: String(Math.round(x / 60)), unit: '분', sec: null as string | null } : { big: String(Math.floor(x / 60)), unit: '분', sec: pad(x % 60) };
-};
 export { pad };

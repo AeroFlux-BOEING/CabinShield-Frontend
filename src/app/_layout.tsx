@@ -10,6 +10,7 @@ import { Sidebar } from '../components/Sidebar';
 import { Toast } from '../components/Toast';
 import { T } from '../components/ui/T';
 import { CanvasWidth, useResponsive } from '../hooks/useResponsive';
+import { LangProvider, useLang } from '../i18n/LangContext';
 import { FlightProvider } from '../state/FlightContext';
 import { pad } from '../state/FlightSim';
 import { UiProvider } from '../state/UiContext';
@@ -36,6 +37,7 @@ function AppShell() {
 
 function IpadStatusBar() {
   const { c } = useTheme();
+  const { lang } = useLang();
   const [now, setNow] = useState(new Date());
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 20000);
@@ -44,7 +46,7 @@ function IpadStatusBar() {
   return (
     <View style={{ height: IPAD.bar, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 22, backgroundColor: c.sidebar }}>
       <T size={13} weight={600}>{`${now.getHours()}:${pad(now.getMinutes())}`}</T>
-      <T size={13} weight={600}>{`${now.getMonth() + 1}월 ${now.getDate()}일 ${'일월화수목금토'[now.getDay()]}`}</T>
+      <T size={13} weight={600}>{lang === 'ko' ? `${now.getMonth() + 1}월 ${now.getDate()}일 ${'일월화수목금토'[now.getDay()]}` : now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</T>
       <View style={{ flex: 1 }} />
       <Svg width={17} height={12} viewBox="0 0 17 12">
         <Path d="M8.5 2.2c2.4 0 4.6.9 6.3 2.5l1.1-1.1A10.5 10.5 0 0 0 8.5.6 10.5 10.5 0 0 0 1.1 3.6l1.1 1.1A8.9 8.9 0 0 1 8.5 2.2Zm0 3.2c1.5 0 2.9.6 4 1.6l1.1-1.1a7.3 7.3 0 0 0-10.2 0l1.1 1.1c1.1-1 2.5-1.6 4-1.6Zm0 3.2c.7 0 1.3.3 1.8.7L8.5 11 6.7 9.3c.5-.4 1.1-.7 1.8-.7Z" fill={c.ink} />
@@ -101,6 +103,7 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <ThemeProvider>
+        <LangProvider>
         <FlightProvider>
           <UiProvider>
             <Frame>
@@ -108,6 +111,7 @@ export default function RootLayout() {
             </Frame>
           </UiProvider>
         </FlightProvider>
+        </LangProvider>
       </ThemeProvider>
     </SafeAreaProvider>
   );

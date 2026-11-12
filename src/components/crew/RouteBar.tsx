@@ -5,6 +5,8 @@ import Svg, { Circle, G, Line, Path, Rect, Text as SvgText } from 'react-native-
 import { HISTORY, POINTS } from '../../domain/content';
 import { PLAN_GS } from '../../domain/flight';
 import { ROUTE_NM } from '../../domain/geo';
+import { aheadText } from '../../i18n/format';
+import { useLang } from '../../i18n/LangContext';
 import { useFlight } from '../../state/FlightContext';
 import { useTheme } from '../../theme/ThemeProvider';
 import { svgFont } from '../../theme/typography';
@@ -19,18 +21,19 @@ const H = 86;
 export function RouteBar() {
   const { c } = useTheme();
   const { sim } = useFlight();
+  const { lang, L } = useLang();
   const [w, setW] = useState(0);
   const x0 = 40, x1 = 960, X = (d: number) => x0 + ((x1 - x0) * d) / ROUTE_NM;
   const next = sim.ex.find((e) => e.t0 > sim.t);
   let labelled = false;
-  const ago = (tt: number) => (tt > 0 ? (tt >= 3600 ? `${Math.floor(tt / 3600)}시간 ${Math.round((tt % 3600) / 60)}분 뒤` : `${Math.round(tt / 60)}분 뒤`) : '지금');
+  const ago = (tt: number) => aheadText(tt, lang);
 
   return (
     <Card style={{ gap: 8, paddingVertical: 16 }}>
-      <CardHead title="전체 비행" />
+      <CardHead title={L('전체 비행', 'Whole flight')} />
       <View onLayout={(e) => setW(e.nativeEvent.layout.width)} style={{ width: '100%', aspectRatio: W / H, maxHeight: 86 }}>
         {w > 0 ? (
-          <Svg width="100%" height="100%" viewBox={`0 0 ${W} ${H}`} accessibilityLabel="인천에서 샌프란시스코까지 진행 상황과 난기류 구간">
+          <Svg width="100%" height="100%" viewBox={`0 0 ${W} ${H}`} accessibilityLabel={L('인천에서 샌프란시스코까지 진행 상황과 난기류 구간', 'Progress from Incheon to San Francisco with turbulence segments')}>
             <Line x1={x0} x2={x1} y1={40} y2={40} stroke={c.line} strokeWidth={6} strokeLinecap="round" />
             <Line x1={x0} x2={X(sim.estD)} y1={40} y2={40} stroke={c.navy} strokeWidth={6} strokeLinecap="round" />
             {HISTORY.map((h, i) => (
@@ -62,20 +65,20 @@ export function RouteBar() {
               : null}
             <Circle cx={x0} cy={40} r={6} fill={c.card} stroke={c.ink2} strokeWidth={2} />
             <Circle cx={x1} cy={40} r={6} fill={c.card} stroke={c.ink2} strokeWidth={2} />
-            <SvgText fontFamily={svgFont} x={x0} y={74} fontSize={13} fontWeight="700" fill={c.ink} textAnchor="middle">인천</SvgText>
-            <SvgText fontFamily={svgFont} x={x1} y={74} fontSize={13} fontWeight="700" fill={c.ink} textAnchor="end">샌프란시스코</SvgText>
+            <SvgText fontFamily={svgFont} x={x0} y={74} fontSize={13} fontWeight="700" fill={c.ink} textAnchor="middle">{L('인천', 'Incheon')}</SvgText>
+            <SvgText fontFamily={svgFont} x={x1} y={74} fontSize={13} fontWeight="700" fill={c.ink} textAnchor="end">{L('샌프란시스코', 'San Francisco')}</SvgText>
             <G transform={`translate(${X(sim.estD)},40) rotate(90) scale(1.25)`}>
               <Path d={PLANE_PATH} fill={c.navy} stroke={c.card} strokeWidth={1.2} />
             </G>
-            <SvgText fontFamily={svgFont} x={Math.max(90, Math.min(880, X(sim.estD)))} y={74} fontSize={12} fill={c.ink2} textAnchor="middle">{`지금 여기 · ${Math.round((sim.estD / ROUTE_NM) * 100)}%`}</SvgText>
+            <SvgText fontFamily={svgFont} x={Math.max(lang === "en" ? 130 : 90, Math.min(880, X(sim.estD)))} y={74} fontSize={12} fill={c.ink2} textAnchor="middle">{`${L('지금 여기', 'You are here')} · ${Math.round((sim.estD / ROUTE_NM) * 100)}%`}</SvgText>
           </Svg>
         ) : null}
       </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 18, rowGap: 6 }}>
-        <Legend swatch={<View style={{ width: 18, height: 6, borderRadius: 3, backgroundColor: c.p3Dot }} />} text="오늘 예보 난기류 구간" />
-        <Legend swatch={<View style={{ width: 18, height: 6, borderRadius: 3, borderWidth: 1.5, borderStyle: 'dashed', borderColor: c.p2Dot }} />} text="과거 유사 난기류 보고 구간" />
-        <Legend swatch={<View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: c.navy }} />} text="지나온 길" />
-        <Legend text="P1 · P2 · P3 대응 포인트" />
+        <Legend swatch={<View style={{ width: 18, height: 6, borderRadius: 3, backgroundColor: c.p3Dot }} />} text={L('오늘 예보 난기류 구간', "Today's forecast turbulence")} />
+        <Legend swatch={<View style={{ width: 18, height: 6, borderRadius: 3, borderWidth: 1.5, borderStyle: 'dashed', borderColor: c.p2Dot }} />} text={L('과거 유사 난기류 보고 구간', 'Past similar turbulence reports')} />
+        <Legend swatch={<View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: c.navy }} />} text={L('지나온 길', 'Flown')} />
+        <Legend text={L('P1 · P2 · P3 대응 포인트', 'P1 · P2 · P3 response points')} />
       </View>
     </Card>
   );

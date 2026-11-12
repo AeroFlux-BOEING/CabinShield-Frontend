@@ -1,6 +1,7 @@
 import { View } from 'react-native';
 
-import { mmss } from '../../state/FlightSim';
+import { countdown } from '../../i18n/format';
+import { useLang } from '../../i18n/LangContext';
 import { useFlight } from '../../state/FlightContext';
 import { bannerView } from '../../state/crewView';
 import { useResponsive } from '../../hooks/useResponsive';
@@ -12,10 +13,11 @@ export function PointBanner() {
   const { c, scheme } = useTheme();
   const { sim } = useFlight();
   const { compact } = useResponsive();
-  const b = bannerView(sim);
+  const { lang } = useLang();
+  const b = bannerView(sim, lang);
   const col = levelColors(c, b.level);
   const tinted = b.level > 0;
-  const cnt = b.countSec != null ? mmss(b.countSec) : null;
+  const cnt = b.countSec != null ? countdown(b.countSec, lang) : null;
   return (
     <View
       accessibilityLiveRegion="polite"
@@ -44,7 +46,7 @@ export function PointBanner() {
               {cnt.sec ? (
                 <>
                   <T size={60} weight={600} tracking={-0.045} color={tinted ? col.fg : c.ink3} num>{' ' + cnt.sec}</T>
-                  <T size={19} weight={500} color={c.ink2}>초</T>
+                  <T size={19} weight={500} color={c.ink2}>{cnt.secUnit}</T>
                 </>
               ) : null}
             </>

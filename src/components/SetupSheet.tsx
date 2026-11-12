@@ -2,7 +2,10 @@ import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, TextInput, View, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 
-import { daysText, normaliseFlightNo, SCHEDULE, WEEKDAYS, type ScheduledFlight } from '../domain/schedule';
+import { daysText, normaliseFlightNo, SCHEDULE, type ScheduledFlight } from '../domain/schedule';
+import { dateLabel, monthLabel, WEEKDAYS } from '../i18n/format';
+import { tx, useLang, type Txt } from '../i18n/LangContext';
+import { LangToggle } from './LangToggle';
 import { pad } from '../state/FlightSim';
 import { useFlight } from '../state/FlightContext';
 import { useUi } from '../state/UiContext';
@@ -70,6 +73,7 @@ export function SetupSheet() {
   const { sim, refresh } = useFlight();
   const { setupOpen, closeSetup } = useUi();
   const router = useRouter();
+  const { lang, L, P } = useLang();
 
   const days = useMemo(() => {
     const base = new Date();
@@ -81,7 +85,7 @@ export function SetupSheet() {
   const [h, setH] = useState(20);
   const [m5, setM5] = useState(8);
   const [look, setLook] = useState<Lookup>({ st: 'idle' });
-  const [note, setNote] = useState('');
+  const [note, setNote] = useState<Txt | null>(null);
   const [err, setErr] = useState('');
 
   useEffect(() => {
@@ -96,13 +100,13 @@ export function SetupSheet() {
       const [hh, mm] = f.dep.split(':').map(Number);
       setH(hh);
       setM5(Math.round(mm / 5));
-      setNote('');
+      setNote(null);
       if (f.supported && !f.days.includes(fromYmd(date).getDay())) {
         const nd = days.find((d) => f.days.includes(d.getDay()));
         if (nd) {
           const d0 = fromYmd(date);
           setDate(ymd(nd));
-          setNote(`${d0.getMonth() + 1}월 ${d0.getDate()}일(${WEEKDAYS[d0.getDay()]})은 운항하지 않아 가장 가까운 운항일로 바꿨어요`);
+          setNote(tx(`${d0.getMonth() + 1}월 ${d0.getDate()}일(${WEEKDAYS[d0.getDay()].ko})은 운항하지 않아 가장 가까운 운항일로 바꿨어요`, `No flight on ${WEEKDAYS[d0.getDay()].en}, ${dateLabel(d0, 'en')}, so we moved to the nearest operating day`));
         }
       }
     }, 400);
@@ -123,25 +127,27 @@ export function SetupSheet() {
   const delay = sched ? mins - (sched[0] * 60 + sched[1]) : 0;
 
   let card: { tone: 'idle' | 'ok' | 'warn' | 'bad' | 'busy'; icon: string; title: string; sub: string };
-  if (look.st === 'idle') card = { tone: 'idle', icon: '✈', title: '편명을 입력하면 노선이 자동으로 채워집니다', sub: '데모 편명을 눌러 바로 시작할 수 있어요' };
-  else if (look.st === 'busy') card = { tone: 'busy', icon: '↻', title: '운항 스케줄에서 찾는 중…', sub: no };
-  else if (look.st === 'none') card = { tone: 'bad', icon: '?', title: `${look.no} 편을 스케줄에서 찾을 수 없습니다`, sub: '편명을 다시 확인해 주세요 · 예: AFX017' };
-  else if (!look.f.supported) card = { tone: 'warn', icon: '!', title: `${look.no} · 인천 → ${look.f.toName}`, sub: '이 노선은 데모에서 아직 준비 중입니다. AFX017, AFX011, AFX023으로 시작해 주세요.' };
-  else if (!dayOk) card = { tone: 'warn', icon: '!', title: `${look.no}은 ${dObj.getMonth() + 1}월 ${dObj.getDate()}일(${WEEKDAYS[dObj.getDay()]})에 운항하지 않아요`, sub: `${daysText(look.f.days)} · 흐리게 표시된 날짜는 운항하지 않는 날입니다` };
+  const wdS = WEEKDAYS[dObj.getDay()][lang];
+  const icn = L('인천', 'Seoul');
+  if (look.st === 'idle') card = { tone: 'idle', icon: '✈', title: L('편명을 입력하면 노선이 자동으로 채워집니다', 'Enter a flight number and the route fills in automatically'), sub: L('데모 편명을 눌러 바로 시작할 수 있어요', 'Tap a demo flight to start right away') };
+  else if (look.st === 'busy') card = { tone: 'busy', icon: '↻', title: L('운항 스케줄에서 찾는 중…', 'Searching the schedule…'), sub: no };
+  else if (look.st === 'none') card = { tone: 'bad', icon: '?', title: L(`${look.no} 편을 스케줄에서 찾을 수 없습니다`, `${look.no} is not in the schedule`), sub: L('편명을 다시 확인해 주세요 · 예: AFX017', 'Please check the flight number · e.g. AFX017') };
+  else if (!look.f.supported) card = { tone: 'warn', icon: '!', title: `${look.no} · ${icn} → ${P(look.f.toName)}`, sub: L('이 노선은 데모에서 아직 준비 중입니다. AFX017, AFX011, AFX023으로 시작해 주세요.', 'This route is not ready in the demo yet. Please start with AFX017, AFX011 or AFX023.') };
+  else if (!dayOk) card = { tone: 'warn', icon: '!', title: L(`${look.no}은 ${dateLabel(dObj, 'ko')}(${wdS})에 운항하지 않아요`, `${look.no} does not operate on ${wdS}, ${dateLabel(dObj, 'en')}`), sub: `${daysText(look.f.days, lang)} · ${L('흐리게 표시된 날짜는 운항하지 않는 날입니다', 'Dimmed dates have no flight')}` };
   else {
     const [a, b] = look.f.dep.split(':').map(Number);
     const arr = ((((a * 60 + b - 540 + look.f.dur) % 1440) + 1440) % 1440 - 480 + 1440) % 1440;
-    card = { tone: 'ok', icon: '✓', title: `${look.no} · 인천 ${look.f.dep} → ${look.f.toName} ${pad(Math.floor(arr / 60))}:${pad(arr % 60)} (현지)`, sub: note || `${look.f.aircraft} · ${daysText(look.f.days)} · 스케줄에서 찾았어요` };
+    card = { tone: 'ok', icon: '✓', title: `${look.no} · ${icn} ${look.f.dep} → ${P(look.f.toName)} ${pad(Math.floor(arr / 60))}:${pad(arr % 60)} ${L('(현지)', '(local)')}`, sub: note ? P(note) : `${look.f.aircraft} · ${daysText(look.f.days, lang)} · ${L('스케줄에서 찾았어요', 'found in schedule')}` };
   }
   const toneBg = { idle: c.soft, busy: c.soft, ok: c.okSoft, warn: c.p2Soft, bad: c.p3Soft }[card.tone];
   const toneDot = { idle: c.card, busy: c.card, ok: c.okDot, warn: c.p2Dot, bad: c.p3Dot }[card.tone];
 
   const start = () => {
     if (!canStart || !F) {
-      setErr(!no ? '편명을 입력해 주세요.' : !F ? '스케줄에 있는 편명을 입력해 주세요.' : !F.supported ? '이 노선은 데모에서 아직 준비 중입니다.' : '선택한 날짜에 운항하지 않는 편입니다.');
+      setErr(!no ? L('편명을 입력해 주세요.', 'Please enter a flight number.') : !F ? L('스케줄에 있는 편명을 입력해 주세요.', 'Please enter a flight number from the schedule.') : !F.supported ? L('이 노선은 데모에서 아직 준비 중입니다.', 'This route is not ready in the demo yet.') : L('선택한 날짜에 운항하지 않는 편입니다.', 'This flight does not operate on the selected date.'));
       return;
     }
-    sim.start({ no: no.trim(), dateLabel: `${dObj.getMonth() + 1}월 ${dObj.getDate()}일`, depUtc: utc * 60 });
+    sim.start({ no: no.trim(), date: dObj, depUtc: utc * 60 });
     if (Platform.OS === 'web' && typeof document !== 'undefined') document.title = `${no.trim()} · CabinShield`;
     refresh();
     closeSetup();
@@ -159,22 +165,23 @@ export function SetupSheet() {
               <AeroFluxMark width={30} />
             </View>
             <View style={{ flex: 1 }}>
-              <T size={26} weight={700} tracking={-0.03}>비행편 시작</T>
-              <T size={14} color={c.ink2}>운항할 비행편을 입력하면 승무원 화면이 준비됩니다.</T>
+              <T size={26} weight={700} tracking={-0.03}>{L('비행편 시작', 'Start a flight')}</T>
+              <T size={14} color={c.ink2}>{L('운항할 비행편을 입력하면 승무원 화면이 준비됩니다.', 'Enter your flight and the crew screens get ready.')}</T>
             </View>
+            <LangToggle />
           </View>
 
           <View style={{ gap: 6 }}>
-            <T size={13} weight={600} color={c.ink2}>편명</T>
+            <T size={13} weight={600} color={c.ink2}>{L('편명', 'Flight number')}</T>
             <TextInput
               value={no}
               onChangeText={(t) => setNo(normaliseFlightNo(t))}
-              placeholder="예: AFX017"
+              placeholder={L('예: AFX017', 'e.g. AFX017')}
               placeholderTextColor={c.ink3}
               autoCapitalize="characters"
               autoCorrect={false}
               maxLength={8}
-              accessibilityLabel="편명"
+              accessibilityLabel={L('편명', 'Flight number')}
               onSubmitEditing={start}
               style={{ ...field, fontFamily, fontSize: 22, fontWeight: '600', color: c.ink, paddingHorizontal: 14, paddingVertical: 12, letterSpacing: 0.4, borderWidth: 1.5, borderColor: err ? c.p3Dot : 'transparent' }}
             />
@@ -199,7 +206,7 @@ export function SetupSheet() {
           </View>
 
           <View style={{ gap: 6 }}>
-            <T size={13} weight={600} color={c.ink2}>운항일</T>
+            <T size={13} weight={600} color={c.ink2}>{L('운항일', 'Date')}</T>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 2 }}>
               {days.map((d, i) => {
                 const v = ymd(d), on = v === date, off = !!F && !F.days.includes(d.getDay()), wd = d.getDay();
@@ -208,13 +215,13 @@ export function SetupSheet() {
                     key={v}
                     accessibilityRole="radio"
                     accessibilityState={{ selected: on }}
-                    accessibilityLabel={`${d.getMonth() + 1}월 ${d.getDate()}일 ${WEEKDAYS[wd]}요일`}
-                    onPress={() => { setDate(v); setNote(''); }}
+                    accessibilityLabel={`${dateLabel(d, lang)} ${WEEKDAYS[wd][lang]}`}
+                    onPress={() => { setDate(v); setNote(null); }}
                     style={{ width: 60, paddingTop: 9, paddingBottom: 8, borderRadius: 14, alignItems: 'center', backgroundColor: on ? c.navy : c.soft, opacity: off && !on ? 0.38 : 1 }}
                   >
-                    <T size={11.5} weight={600} color={on ? 'rgba(255,255,255,0.82)' : wd === 0 ? c.p3 : wd === 6 ? c.navy : c.ink2}>{i === 0 ? '오늘' : i === 1 ? '내일' : WEEKDAYS[wd]}</T>
+                    <T size={11.5} weight={600} color={on ? 'rgba(255,255,255,0.82)' : wd === 0 ? c.p3 : wd === 6 ? c.navy : c.ink2}>{i === 0 ? L('오늘', 'Today') : i === 1 ? L('내일', 'Tmrw') : WEEKDAYS[wd][lang]}</T>
                     <T size={21} weight={600} tracking={-0.02} color={on ? '#FFFFFF' : c.ink} num>{String(d.getDate())}</T>
-                    <T size={11} color={on ? 'rgba(255,255,255,0.82)' : c.ink3}>{`${d.getMonth() + 1}월`}</T>
+                    <T size={11} color={on ? 'rgba(255,255,255,0.82)' : c.ink3}>{monthLabel(d, lang)}</T>
                   </Pressable>
                 );
               })}
@@ -222,21 +229,21 @@ export function SetupSheet() {
           </View>
 
           <View style={{ gap: 6 }}>
-            <T size={13} weight={600} color={c.ink2}>출발 시각 (한국)</T>
+            <T size={13} weight={600} color={c.ink2}>{L('출발 시각 (한국)', 'Departure time (Korea)')}</T>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 18 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: c.soft, borderRadius: 18, paddingHorizontal: 10, height: ITEM * 5, overflow: 'hidden' }}>
                 <View pointerEvents="none" style={{ position: 'absolute', left: 8, right: 8, top: ITEM * 2, height: ITEM, borderRadius: 11, backgroundColor: c.card }} />
-                <Wheel count={24} label="시" value={h} onChange={setH} format={(i) => pad(i)} />
+                <Wheel count={24} label={L('시', 'Hour')} value={h} onChange={setH} format={(i) => pad(i)} />
                 <T size={22} weight={600}>:</T>
-                <Wheel count={12} label="분" value={m5} onChange={setM5} format={(i) => pad(i * 5)} />
+                <Wheel count={12} label={L('분', 'Minute')} value={m5} onChange={setM5} format={(i) => pad(i * 5)} />
               </View>
               <View style={{ flex: 1, minWidth: 200, gap: 2 }}>
                 <T size={44} weight={600} tracking={-0.04} num>{`${pad(h)}:${pad(m5 * 5)}`}</T>
                 <T size={13} color={c.ink2}>
-                  {`한국 시각 · ${dObj.getMonth() + 1}월 ${dObj.getDate()}일 (${WEEKDAYS[dObj.getDay()]}) 출발`}
-                  {delay ? <T size={13} weight={600} color={c.p2}>{` · 스케줄 대비 ${delay > 0 ? '+' : ''}${delay}분`}</T> : null}
+                  {L(`한국 시각 · ${dateLabel(dObj, 'ko')} (${wdS}) 출발`, `Korea time · departs ${wdS}, ${dateLabel(dObj, 'en')}`)}
+                  {delay ? <T size={13} weight={600} color={c.p2}>{` · ${L('스케줄 대비', 'vs schedule')} ${delay > 0 ? '+' : ''}${delay}${L('분', ' min')}`}</T> : null}
                 </T>
-                <T size={13} color={c.ink2} num>{`UTC ${pad(Math.floor(utc / 60))}:${pad(utc % 60)}${mins < 540 ? ' · UTC 기준 전날' : ''}`}</T>
+                <T size={13} color={c.ink2} num>{`UTC ${pad(Math.floor(utc / 60))}:${pad(utc % 60)}${mins < 540 ? L(' · UTC 기준 전날', ' · previous day in UTC') : ''}`}</T>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
                   {['09:30', '13:05', '20:40', '23:55'].map((q) => (
                     <Pressable key={q} onPress={() => { const [a, b] = q.split(':').map(Number); setH(a); setM5(Math.round(b / 5)); }} style={({ pressed }) => ({ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: pressed ? c.navySoft : c.soft })}>
@@ -250,8 +257,8 @@ export function SetupSheet() {
 
           <View style={{ flexDirection: 'row', gap: 12 }}>
             {[
-              ['노선', F ? `인천 ${F.from} → ${F.toName} ${F.to}` : null, F ? `스케줄 ${F.dep} 출발 · 약 ${Math.floor(F.dur / 60)}시간 ${F.dur % 60}분` : ''],
-              ['기종', F ? F.aircraft : null, F ? F.aircraftNote : ''],
+              [L('노선', 'Route'), F ? `${icn} ${F.from} → ${P(F.toName)} ${F.to}` : null, F ? L(`스케줄 ${F.dep} 출발 · 약 ${Math.floor(F.dur / 60)}시간 ${F.dur % 60}분`, `Scheduled ${F.dep} · about ${Math.floor(F.dur / 60)}h ${F.dur % 60}m`) : ''],
+              [L('기종', 'Aircraft'), F ? F.aircraft : null, F ? P(F.aircraftNote) : ''],
             ].map(([k, v, s]) => (
               <View key={k as string} style={{ flex: 1, gap: 6 }}>
                 <T size={13} weight={600} color={c.ink2}>{k}</T>
@@ -262,7 +269,7 @@ export function SetupSheet() {
                       <T size={12} color={c.ink2}>{s}</T>
                     </>
                   ) : (
-                    <T size={15} color={c.ink3}>자동 입력</T>
+                    <T size={15} color={c.ink3}>{L('자동 입력', 'Auto-filled')}</T>
                   )}
                 </View>
               </View>
@@ -271,14 +278,14 @@ export function SetupSheet() {
 
           {err ? <T size={13.5} color={c.p3}>{err}</T> : null}
           <Pressable accessibilityRole="button" accessibilityState={{ disabled: !canStart }} onPress={start} style={({ pressed }) => ({ borderRadius: 14, paddingVertical: 15, alignItems: 'center', backgroundColor: canStart ? (pressed ? '#0A3FB5' : c.navy) : c.seat })}>
-            <T size={17} weight={600} color="#FFFFFF">시작하기</T>
+            <T size={17} weight={600} color="#FFFFFF">{L('시작하기', 'Start')}</T>
           </Pressable>
           {sim.flight ? (
             <Pressable onPress={closeSetup} style={{ alignItems: 'center' }}>
-              <T size={14} weight={500} color={c.navy}>취소하고 돌아가기</T>
+              <T size={14} weight={500} color={c.navy}>{L('취소하고 돌아가기', 'Cancel and go back')}</T>
             </Pressable>
           ) : null}
-          <T size={12.5} color={c.ink3} align="center">가상 운항 스케줄 기준입니다. 실제 서비스에서는 항공사 운항 시스템이나 항공기 비행계획에서 받아옵니다.</T>
+          <T size={12.5} color={c.ink3} align="center">{L('가상 운항 스케줄 기준입니다. 실제 서비스에서는 항공사 운항 시스템이나 항공기 비행계획에서 받아옵니다.', 'Based on a fictional schedule. In service, this comes from the airline operations system or the aircraft flight plan.')}</T>
         </View>
       </ScrollView>
     </View>
