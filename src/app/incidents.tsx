@@ -1,10 +1,6 @@
-import { PlaceholderView } from '../components/PlaceholderView';
+import { Redirect } from 'expo-router';
 
-export default function IncidentsScreen() {
-  return (
-    <PlaceholderView
-      title="Incident Data"
-      description="Reference cases behind the design: ARAIB/AAR2102 (OZ8913), JTSB AA2021-3 (LJ262) and NASA ASRS flight attendant reports. This tab is designed next."
-    />
-  );
+/** Legacy route from the Safety Kernel PoC. The crew app replaced it; links fall back to 운항 현황. */
+export default function LegacyRoute() {
+  return <Redirect href="/overview" />;
 }

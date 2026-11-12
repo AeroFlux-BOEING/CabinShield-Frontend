@@ -1,59 +1,44 @@
-import { Text, type TextProps, type TextStyle } from 'react-native';
+import type { ReactNode } from 'react';
+import { Text, type StyleProp, type TextStyle } from 'react-native';
 
 import { useTheme } from '../../theme/ThemeProvider';
-import { FONT_FAMILY, type Weight } from '../../theme/typography';
+import { fontFamily, weight as fw, type Weight } from '../../theme/typography';
 
-export interface TProps extends TextProps {
+interface Props {
+  children?: ReactNode;
   size?: number;
   weight?: Weight;
   color?: string;
-  /** Tabular numerals. */
-  tnum?: boolean;
-  /** Letter spacing in em (e.g. -0.03). */
+  /** letter-spacing in em */
   tracking?: number;
-  upper?: boolean;
-  lineHeight?: number;
+  /** tabular numbers */
+  num?: boolean;
+  lines?: number;
   align?: TextStyle['textAlign'];
-  strike?: boolean;
+  lh?: number;
+  style?: StyleProp<TextStyle>;
 }
 
-/** Themed text. Use <Span> for coloured runs nested inside a <T>. */
-export function T({
-  size = 14,
-  weight = 400,
-  color,
-  tnum,
-  tracking,
-  upper,
-  lineHeight,
-  align,
-  strike,
-  style,
-  ...rest
-}: TProps) {
+export function T({ children, size = 15, weight = 400, color, tracking = -0.01, num, lines, align, lh, style }: Props) {
   const { c } = useTheme();
   return (
     <Text
-      {...rest}
+      numberOfLines={lines}
       style={[
         {
-          fontFamily: FONT_FAMILY[weight],
+          fontFamily,
           fontSize: size,
-          color: color ?? c.fg,
-          letterSpacing: tracking != null ? tracking * size : undefined,
-          textTransform: upper ? 'uppercase' : undefined,
-          fontVariant: tnum ? ['tabular-nums'] : undefined,
-          lineHeight,
+          fontWeight: fw(weight),
+          color: color ?? c.ink,
+          letterSpacing: tracking * size,
+          lineHeight: lh ? lh * size : undefined,
           textAlign: align,
-          textDecorationLine: strike ? 'line-through' : undefined,
+          fontVariant: num ? ['tabular-nums'] : undefined,
         },
         style,
       ]}
-    />
+    >
+      {children}
+    </Text>
   );
-}
-
-/** Inherits font settings from the parent <T>; only overrides colour/weight. */
-export function Span({ color, weight, children }: { color?: string; weight?: Weight; children: React.ReactNode }) {
-  return <Text style={{ color, fontFamily: weight ? FONT_FAMILY[weight] : undefined }}>{children}</Text>;
 }

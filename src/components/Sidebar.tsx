@@ -1,133 +1,125 @@
 import { usePathname, useRouter, type Href } from 'expo-router';
 import { Pressable, ScrollView, View } from 'react-native';
 
-import { TABS, type TabItem } from '../navigation/tabs';
+import { TABS } from '../navigation/tabs';
+import { useFlight } from '../state/FlightContext';
+import { bannerView } from '../state/crewView';
 import { useTheme } from '../theme/ThemeProvider';
+import { levelColors } from '../theme/tokens';
 import { AeroFluxMark } from './AeroFluxMark';
 import { Icon } from './Icon';
-import { Eyebrow } from './ui/Surfaces';
+import { Segmented } from './ui/Controls';
 import { T } from './ui/T';
 
-function useActiveRoute(): string {
-  const pathname = usePathname();
-  return pathname.replace(/^\//, '').split('/')[0] || 'overview';
+function useActive() {
+  return usePathname().replace(/^\//, '').split('/')[0] || 'overview';
 }
 
-function Brand() {
+function StatusChip({ small }: { small?: boolean }) {
   const { c } = useTheme();
+  const { sim } = useFlight();
+  const b = bannerView(sim);
+  const col = levelColors(c, b.level);
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 8 }}>
-      <View
-        style={{
-          width: 44,
-          height: 44,
-          borderRadius: 22,
-          backgroundColor: c.card,
-          borderWidth: 1,
-          borderColor: c.line,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <AeroFluxMark width={30} />
-      </View>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: small ? 8 : 12, paddingHorizontal: small ? 12 : 14, borderRadius: 14, backgroundColor: b.level ? col.bg : c.soft }}>
+      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: col.dot }} />
       <View>
-        <T size={17} weight={800} tracking={-0.01}>
-          CabinShield AI
-        </T>
-        <T size={12} color={c.muted}>
-          by AeroFlux
-        </T>
+        <T size={14} weight={600} color={b.level ? col.fg : c.ink}>{b.sideTitle}</T>
+        {small ? null : <T size={12} color={c.ink2}>{b.sideSub}</T>}
       </View>
     </View>
   );
 }
 
-function NavItem({ tab, active, pill }: { tab: TabItem; active: boolean; pill?: boolean }) {
+function SpeedControl() {
   const { c } = useTheme();
-  const router = useRouter();
-  const fg = active ? c.onAccent : c.fg;
+  const { sim, refresh } = useFlight();
   return (
-    <Pressable
-      accessibilityRole="link"
-      accessibilityState={{ selected: active }}
-      accessibilityLabel={tab.label}
-      onPress={() => router.navigate(`/${tab.route}` as Href)}
-      style={({ pressed }) => ({
-        height: 44,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        paddingHorizontal: 14,
-        borderRadius: 22,
-        backgroundColor: active ? c.accent : pressed ? c.card : pill ? c.card : 'transparent',
-      })}
-    >
-      <Icon name={tab.icon} color={fg} />
-      <T weight={600} color={fg}>
-        {tab.label}
-      </T>
-    </Pressable>
-  );
-}
-
-function DecisionFlow() {
-  const { c } = useTheme();
-  const steps = ['GenAI proposes', 'Safety Kernel verifies', 'Human decides'];
-  return (
-    <View style={{ backgroundColor: c.card, borderRadius: 20, padding: 16, gap: 10 }}>
-      <Eyebrow>Decision flow</Eyebrow>
-      <View style={{ gap: 6 }}>
-        {steps.map((s, i) => (
-          <View key={s} style={{ gap: 6 }}>
-            {i > 0 ? (
-              <T size={13} color={c.muted}>
-                ↓
-              </T>
-            ) : null}
-            <T size={13} weight={600}>
-              {s}
-            </T>
-          </View>
-        ))}
-      </View>
+    <View style={{ gap: 6 }}>
+      <T size={11.5} weight={600} color={c.ink3} tracking={0.06} style={{ paddingHorizontal: 8 }}>발표용 배속</T>
+      <Segmented
+        label="빨리 감기"
+        value={sim.speed}
+        onChange={(v) => { sim.setSpeed(v); refresh(); }}
+        options={[{ value: 10, label: '10배' }, { value: 60, label: '60배' }, { value: 300, label: '300배' }]}
+        style={{ alignSelf: 'stretch' }}
+      />
     </View>
   );
 }
 
-/** Tablet: fixed left menu. Phone (`compact`): brand + horizontally scrolling tab pills. */
+function Flow() {
+  const { c } = useTheme();
+  const steps = ['조종실 · 기상 정보 수신', 'AI가 포인트 판단', '승무원이 확인하고 행동'];
+  return (
+    <View style={{ backgroundColor: c.soft, borderRadius: 14, padding: 14, gap: 8 }}>
+      <T size={11.5} weight={600} color={c.ink3} tracking={0.06}>포인트 안내 흐름</T>
+      {steps.map((s) => (
+        <View key={s} style={{ flexDirection: 'row', alignItems: 'center', gap: 9 }}>
+          <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: c.navy }} />
+          <T size={13}>{s}</T>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/** iPad: full-height left sidebar. Phone (`compact`): horizontal tab strip. */
 export function Sidebar({ compact }: { compact: boolean }) {
   const { c } = useTheme();
-  const active = useActiveRoute();
+  const router = useRouter();
+  const active = useActive();
+  const go = (r: string) => router.navigate(`/${r}` as Href);
 
   if (compact) {
     return (
-      <View style={{ backgroundColor: c.side, borderRadius: 28, paddingVertical: 16, gap: 14 }}>
-        <View style={{ paddingHorizontal: 12 }}>
-          <Brand />
-        </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingHorizontal: 16 }}>
-          {TABS.map((t) => (
-            <NavItem key={t.route} tab={t} active={t.route === active} pill />
-          ))}
-        </ScrollView>
-      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 6, paddingHorizontal: 12, paddingVertical: 8, alignItems: 'center' }}>
+        <StatusChip small />
+        {TABS.map((t) => {
+          const on = t.route === active;
+          return (
+            <Pressable key={t.route} accessibilityRole="link" accessibilityState={{ selected: on }} onPress={() => go(t.route)} style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: on ? c.navySoft : 'transparent' }}>
+              <T size={14.5} weight={on ? 600 : 500} color={on ? c.navy : c.ink}>{t.label}</T>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
     );
   }
 
   return (
-    <View style={{ width: 240, backgroundColor: c.side, borderRadius: 28, paddingVertical: 24, paddingHorizontal: 16, gap: 28 }}>
-      <Brand />
-      <View accessibilityRole="menu" style={{ gap: 4 }}>
-        <View style={{ paddingHorizontal: 12, paddingBottom: 6 }}>
-          <Eyebrow>Menu</Eyebrow>
+    <ScrollView style={{ width: 248, flexGrow: 0, backgroundColor: c.sidebar, borderRightWidth: 1, borderRightColor: c.line }} contentContainerStyle={{ flexGrow: 1, paddingVertical: 18, paddingHorizontal: 12, gap: 14 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 6 }}>
+        <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: c.card, alignItems: 'center', justifyContent: 'center' }}>
+          <AeroFluxMark width={24} />
         </View>
-        {TABS.map((t) => (
-          <NavItem key={t.route} tab={t} active={t.route === active} />
-        ))}
+        <View>
+          <T size={16} weight={600} tracking={-0.02}>CabinShield AI</T>
+          <T size={12} color={c.ink2}>by AeroFlux</T>
+        </View>
+      </View>
+      <StatusChip />
+      <View accessibilityRole="menu" style={{ gap: 2 }}>
+        <T size={11.5} weight={600} color={c.ink3} tracking={0.06} style={{ paddingHorizontal: 8, paddingBottom: 6 }}>메뉴</T>
+        {TABS.map((t) => {
+          const on = t.route === active;
+          return (
+            <Pressable
+              key={t.route}
+              accessibilityRole="link"
+              accessibilityState={{ selected: on }}
+              onPress={() => go(t.route)}
+              style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 8, paddingHorizontal: 10, borderRadius: 10, backgroundColor: on ? c.navySoft : pressed ? c.fill : 'transparent' })}
+            >
+              <Icon name={t.icon} color={on ? c.navy : c.ink2} />
+              <T size={14.5} weight={on ? 600 : 500} color={on ? c.navy : c.ink}>{t.label}</T>
+            </Pressable>
+          );
+        })}
       </View>
       <View style={{ flex: 1 }} />
-      <DecisionFlow />
-    </View>
+      <SpeedControl />
+      <Flow />
+    </ScrollView>
   );
 }

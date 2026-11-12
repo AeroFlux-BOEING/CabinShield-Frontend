@@ -1,28 +1,28 @@
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
-import { SERVICE_NAMES } from '../domain/constants';
-import type { ExportMode } from '../hooks/usePngExport';
-import { useScenario } from '../state/ScenarioContext';
-import { Button, Chip } from './ui/Controls';
+import { ROUTE_NM } from '../domain/geo';
+import { hoursText } from '../state/FlightSim';
+import { useFlight } from '../state/FlightContext';
+import { useUi } from '../state/UiContext';
+import { useResponsive } from '../hooks/useResponsive';
+import { useTheme } from '../theme/ThemeProvider';
+import { T } from './ui/T';
 
-const chips = { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center', flexShrink: 1, maxWidth: '100%' } as const;
-
-export function TopBar({ onExport }: { onExport: (mode: ExportMode) => void }) {
-  const { state } = useScenario();
+export function TopBar() {
+  const { c } = useTheme();
+  const { sim } = useFlight();
+  const { openSetup } = useUi();
+  const { compact } = useResponsive();
+  const f = sim.flight;
   return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, alignItems: 'center', justifyContent: 'space-between' }}>
-      <View style={chips}>
-        <Chip variant="solid">Scenario 01</Chip>
-        <Chip>{SERVICE_NAMES[state.service]}</Chip>
-        <Chip>B737-8 · Aft cabin · Cruise</Chip>
-      </View>
-      <View style={chips}>
-        <Chip variant="alert" dot>
-          Anticipated turbulence · TTA {state.tta} s
-        </Chip>
-        <Button label="Save screenshot" onPress={() => onExport('screen')} />
-        <Button label="Quick save PNG" variant="primary" onPress={() => onExport('panel')} />
-      </View>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 14, rowGap: 6, paddingBottom: 4 }}>
+      <T size={17} weight={600} tracking={-0.02}>{f ? `${f.no}${f.dateLabel ? ' · ' + f.dateLabel : ''}` : '비행편 없음'}</T>
+      <Pressable accessibilityRole="button" onPress={openSetup} style={({ pressed }) => ({ paddingHorizontal: 12, paddingVertical: 5, borderRadius: 999, backgroundColor: pressed ? c.navySoft : c.card })}>
+        <T size={12.5} weight={600} color={c.navy}>비행편 변경</T>
+      </Pressable>
+      <T size={14} color={c.ink2}>B787-9 · 인천 → 샌프란시스코</T>
+      {compact ? null : <View style={{ flex: 1 }} />}
+      <T size={14} color={c.ink2} num>{`현재 ${sim.clock(sim.t)} UTC · 도착까지 ${hoursText(((ROUTE_NM - sim.estD) / 492) * 3600)}`}</T>
     </View>
   );
 }

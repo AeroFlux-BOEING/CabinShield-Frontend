@@ -1,53 +1,42 @@
-import { useRef, type ComponentRef, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { ScrollView, View } from 'react-native';
 
-import { PLACEHOLDER_NOTE } from '../domain/constants';
-import { usePngExport } from '../hooks/usePngExport';
 import { useResponsive } from '../hooks/useResponsive';
 import { useTheme } from '../theme/ThemeProvider';
 import { TopBar } from './TopBar';
-import { Eyebrow } from './ui/Surfaces';
 import { T } from './ui/T';
 
-/** Work panel for one tab: top bar, view content, PoC note. */
-export function Screen({ children }: { children: ReactNode }) {
+/** Scrollable page body under the top bar, with optional large title. */
+export function Screen({ title, desc, children }: { title?: string; desc?: string; children: ReactNode }) {
   const { c } = useTheme();
   const { compact } = useResponsive();
-  const captureTarget = useRef<ComponentRef<typeof View>>(null);
-  const { exportPng, toast } = usePngExport(captureTarget);
-
+  const pad = compact ? 16 : 22;
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: compact ? 18 : 28 }} keyboardShouldPersistTaps="handled">
-      <View ref={captureTarget} collapsable={false} style={{ gap: 24, backgroundColor: c.panel }}>
-        <TopBar onExport={exportPng} />
-        {toast ? (
-          <View accessibilityLiveRegion="polite" style={{ alignSelf: 'flex-end', marginTop: -12, backgroundColor: c.card, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 }}>
-            <T size={12} color={c.fg2}>
-              {toast}
-            </T>
-          </View>
-        ) : null}
-        {children}
-        <T size={12} color={c.tight}>
-          {PLACEHOLDER_NOTE}
-        </T>
-      </View>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: pad, paddingTop: compact ? 8 : 18, gap: 16, paddingBottom: 32 }}>
+      <TopBar />
+      {title ? (
+        <View style={{ gap: 4, paddingHorizontal: 4 }}>
+          <T size={30} weight={700} tracking={-0.03}>{title}</T>
+          {desc ? <T size={15} color={c.ink2}>{desc}</T> : null}
+        </View>
+      ) : null}
+      {children}
+      <T size={12} color={c.ink2} align="center">가정 시나리오 데모입니다. 비행 경로, 바람, 흔들림 예보는 모두 시뮬레이션 값이고, 행동 문구는 설명용 예시입니다. 실제 운항에서는 항공사 절차와 조종실 지시를 따릅니다.</T>
     </ScrollView>
   );
 }
 
-export function ScreenHeader({ eyebrow, title, right }: { eyebrow: string; title: string; right?: ReactNode }) {
-  const { compact } = useResponsive();
-  const size = compact ? 32 : 40;
+/** Row that stacks on narrow canvases. `weights` sets relative widths. */
+export function Row({ children, weights, breakAt = 980 }: { children: ReactNode[]; weights?: number[]; breakAt?: number }) {
+  const { width } = useResponsive();
+  const stack = width < breakAt;
   return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end', justifyContent: 'space-between' }}>
-      <View style={{ gap: 4, flexShrink: 1 }}>
-        <Eyebrow>{eyebrow}</Eyebrow>
-        <T accessibilityRole="header" size={size} weight={800} tracking={-0.03} lineHeight={size * 1.15}>
-          {title}
-        </T>
-      </View>
-      {right}
+    <View style={{ flexDirection: stack ? 'column' : 'row', gap: 16 }}>
+      {children.map((ch, i) => (
+        <View key={i} style={stack ? undefined : { flex: weights?.[i] ?? 1, minWidth: 0 }}>
+          {ch}
+        </View>
+      ))}
     </View>
   );
 }

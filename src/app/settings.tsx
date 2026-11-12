@@ -1,10 +1,6 @@
-import { PlaceholderView } from '../components/PlaceholderView';
+import { Redirect } from 'expo-router';
 
-export default function SettingsScreen() {
-  return (
-    <PlaceholderView
-      title="Settings"
-      description="Airline-defined safety buffer, crew roster and aircraft configuration. This tab is designed next."
-    />
-  );
+/** Legacy route from the Safety Kernel PoC. The crew app replaced it; links fall back to 운항 현황. */
+export default function LegacyRoute() {
+  return <Redirect href="/overview" />;
 }
