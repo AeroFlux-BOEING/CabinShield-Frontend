@@ -27,8 +27,6 @@ export interface LogEntry {
   msg: Txt;
 }
 
-export type Speed = 10 | 60 | 300;
-
 export class FlightSim {
   flight: FlightInfo | null = null;
   t = 0;
@@ -39,7 +37,6 @@ export class FlightSim {
   sigma = 0.05;
   lossD = 0;
   running = false;
-  speed: Speed = 60;
   aid = true;
   sat = true;
   lastUplink = 0;
@@ -47,7 +44,6 @@ export class FlightSim {
   cur = 0;
   g = 0;
   afterUntil = -1;
-  near = false;
   arrived = false;
   done: Record<number, boolean> = {};
   ex: Exposure[] = [];
@@ -85,9 +81,6 @@ export class FlightSim {
   get groundSpeedShown() {
     return this.aid ? this.gs : this.gsEst;
   }
-  get effectiveSpeed(): number {
-    return this.near ? Math.min(this.speed, 10) : this.speed;
-  }
   get tEntry(): number | null {
     return this.look && this.cur === 0 ? this.look.first[1] : null;
   }
@@ -100,7 +93,7 @@ export class FlightSim {
     const t = timeForDistance(START_NM), g = groundSpeed(START_NM, t);
     Object.assign(this, {
       t, d: START_NM, gs: g, gsEst: g, estD: START_NM, sigma: 0.05, lossD: 0, aid: true, sat: true, lastUplink: t,
-      look: null, cur: 0, g: 0, afterUntil: -1, near: false, arrived: false, done: {}, ex: [], plan: null, log: [], cabin: { ...NO_ACTIONS },
+      look: null, cur: 0, g: 0, afterUntil: -1, arrived: false, done: {}, ex: [], plan: null, log: [], cabin: { ...NO_ACTIONS },
     });
     this.lastService = null;
     this.lastPlanT = -1e9;
@@ -150,10 +143,10 @@ export class FlightSim {
     }
   }
 
-  /** Advance by real seconds (scaled by the demo speed). */
+  /** Advance by real elapsed seconds (1:1 with wall-clock time). */
   advance(realDt: number) {
     if (!this.running || this.arrived) return;
-    let dt = Math.min(0.25, realDt) * this.effectiveSpeed;
+    let dt = Math.min(0.25, realDt);
     while (dt > 0) {
       const h = Math.min(dt, 5);
       this.step(h);
@@ -196,7 +189,6 @@ export class FlightSim {
       if (svc) this.cabin = { ...NO_ACTIONS };
       this.lastService = svc;
     }
-    this.near = !!L && (L.cur > 0 || L.first[1] <= 1560);
   }
 
   updatePlan(force = false) {
@@ -217,62 +209,7 @@ export class FlightSim {
     this.plan = np;
   }
 
-  /* ---------- controls ---------- */
-  setSpeed(s: Speed) {
-    this.speed = s;
-  }
-  toggleRun() {
-    if (!this.arrived) this.running = !this.running;
-  }
-  toggleAid() {
-    if (this.aid) {
-      this.aid = false;
-      this.lossD = this.d;
-      this.addLog(tx('비행기 위치 신호 끊김 · 예측 위치로 계산 시작', 'Aircraft position signal lost · estimating position'));
-    } else {
-      this.aid = true;
-      this.estD = this.d;
-      this.addLog(tx('비행기 위치 신호 복구', 'Aircraft position signal restored'));
-    }
-    this.evaluate();
-  }
-  toggleSat() {
-    if (this.sat) {
-      this.sat = false;
-      this.addLog(tx('지상 연결 끊김 · 태블릿이 혼자 판단 중', 'Ground link lost · tablet deciding on its own'));
-    } else {
-      this.sat = true;
-      this.lastUplink = this.t;
-      this.addLog(tx('지상 연결 복구 · 최신 흔들림 예보 받음', 'Ground link restored · latest forecast received'));
-      this.lastPlanT = -1e9;
-    }
-    this.evaluate();
-  }
-  /** Jump to 30 minutes before the next forecast segment. */
-  jumpToNext() {
-    let found: number | null = null;
-    for (let s = 0; s <= 10 * 3600; s += 30) {
-      const d = this.d + (this.gs * s) / 3600;
-      if (d > ROUTE_NM) break;
-      if (lookAhead(d, this.t + s, this.gs)?.cur) { found = s; break; }
-    }
-    if (found === null) return this.addLog(tx('남은 비행에 예상되는 흔들림이 없습니다', 'No turbulence expected for the rest of the flight'));
-    if (found <= 1800) return this.addLog(tx('다음 구역이 이미 30분 안에 있습니다', 'Next segment is already within 30 min'));
-    const adv = found - 1800;
-    this.d += (this.gs * adv) / 3600;
-    this.t += adv;
-    this.estD = this.aid ? this.d : this.estD + (this.gsEst * adv) / 3600;
-    if (!this.aid) this.sigma = 0.2 + 0.02 * (this.estD - this.lossD);
-    if (this.sat) this.lastUplink = this.t;
-    this.afterUntil = -1;
-    this.lastPlanT = -1e9;
-    this.evaluate();
-    this.updatePlan(true);
-  }
-  restart() {
-    if (!this.flight) return;
-    this.start(this.flight);
-  }
+  /* ---------- crew input ---------- */
   toggleDone(i: number) {
     const on = !this.done[i];
     this.done = { ...this.done, [i]: on };

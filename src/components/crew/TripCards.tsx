@@ -89,7 +89,7 @@ export function ArrivalCard() {
       <CardHead title={L('도착 준비', 'Arrival prep')} right={<T size={12.5} color={c.ink2}>{L('샌프란시스코 SFO', 'San Francisco SFO')}</T>} />
       <KV
         rows={[
-          [L('도착지 날씨', 'Weather'), L('맑음 · 15°C', 'Clear · 15°C'), L('서풍 12 kt · 시뮬레이션 값', 'West 12 kt · simulated')],
+          [L('도착지 날씨', 'Weather'), L('맑음 · 15°C', 'Clear · 15°C'), L('서풍 12 kt', 'West 12 kt')],
           [L('현지 시각', 'Local time'), `${sim.clockAt(sim.t, PST)} PST`, L('한국보다 17시간 느림', '17 h behind Korea')],
           [L('2차 식사', 'Second meal'), m2 && m2.start != null && m2.end != null ? `${sim.clock(m2.start)}–${sim.clock(m2.end)} UTC` : L('조정 필요', 'Needs adjusting')],
           [L('세관 신고 안내', 'Customs forms'), `${sim.clock(eta - 7200)} UTC`, L('도착 2시간 전 · 미국 입국 안내', '2 h before arrival · US entry')],

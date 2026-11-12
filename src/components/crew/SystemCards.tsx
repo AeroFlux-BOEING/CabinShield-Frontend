@@ -3,7 +3,6 @@ import { View } from 'react-native';
 import { useLang } from '../../i18n/LangContext';
 import { useFlight } from '../../state/FlightContext';
 import { useTheme } from '../../theme/ThemeProvider';
-import { PillButton, Segmented } from '../ui/Controls';
 import { Card, CardHead } from '../ui/Surfaces';
 import { T } from '../ui/T';
 
@@ -57,30 +56,6 @@ export function LogCard() {
           </View>
         ))}
       </View>
-    </Card>
-  );
-}
-
-export function DemoCard() {
-  const { c } = useTheme();
-  const { sim, refresh } = useFlight();
-  const { L } = useLang();
-  const act = (f: () => void) => () => { f(); refresh(); };
-  return (
-    <Card style={{ flex: 1 }}>
-      <CardHead title={L('발표용 데모 조작', 'Demo controls')} />
-      <T size={13} color={c.ink2}>{L('실제 승무원 화면에는 없는 버튼입니다.', 'These controls are not part of the real crew app.')}</T>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        <PillButton onPress={act(() => sim.toggleRun())}>{sim.arrived ? L('도착', 'Arrived') : sim.running ? L('일시정지', 'Pause') : L('재생', 'Play')}</PillButton>
-        <PillButton onPress={act(() => sim.jumpToNext())}>{L('다음 구역 30분 전으로', 'Jump to 30 min before next segment')}</PillButton>
-        <PillButton onPress={act(() => sim.restart())}>{L('처음부터', 'Restart')}</PillButton>
-      </View>
-      <Segmented label={L('빨리 감기', 'Speed')} value={sim.speed} onChange={(v) => { sim.setSpeed(v); refresh(); }} options={[{ value: 10, label: '10×' }, { value: 60, label: '60×' }, { value: 300, label: '300×' }]} />
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        <PillButton tone="warn" active={!sim.aid} onPress={act(() => sim.toggleAid())}>{sim.aid ? L('비행기 위치 신호 끊기', 'Cut position signal') : L('위치 신호 복구', 'Restore position signal')}</PillButton>
-        <PillButton tone="warn" active={!sim.sat} onPress={act(() => sim.toggleSat())}>{sim.sat ? L('지상 연결 끊기', 'Cut ground link') : L('지상 연결 복구', 'Restore ground link')}</PillButton>
-      </View>
-      <T size={13} color={c.ink2}>{L(`지금 ${sim.effectiveSpeed}배 속도`, `Running at ${sim.effectiveSpeed}×`) + (sim.effectiveSpeed < sim.speed ? L(' (1포인트 준비 직전부터 자동으로 느리게)', ' (slowed automatically near Point 1)') : '')}</T>
     </Card>
   );
 }

@@ -1,6 +1,6 @@
 import { Row, Screen } from '../components/Screen';
 import { AiModelCard } from '../components/crew/AiCards';
-import { DemoCard, LogCard, StatusCard } from '../components/crew/SystemCards';
+import { LogCard, StatusCard } from '../components/crew/SystemCards';
 import { useLang } from '../i18n/LangContext';
 import { TABS } from '../navigation/tabs';
 
@@ -14,10 +14,7 @@ export default function System() {
         <StatusCard />
         <AiModelCard />
       </Row>
-      <Row breakAt={860}>
-        <LogCard />
-        <DemoCard />
-      </Row>
+      <LogCard />
     </Screen>
   );
 }

@@ -9,7 +9,6 @@ import { useTheme } from '../theme/ThemeProvider';
 import { levelColors } from '../theme/tokens';
 import { AeroFluxMark } from './AeroFluxMark';
 import { Icon } from './Icon';
-import { Segmented } from './ui/Controls';
 import { T } from './ui/T';
 
 function useActive() {
@@ -29,24 +28,6 @@ function StatusChip({ small }: { small?: boolean }) {
         <T size={14} weight={600} color={b.level ? col.fg : c.ink}>{b.sideTitle}</T>
         {small ? null : <T size={12} color={c.ink2}>{b.sideSub}</T>}
       </View>
-    </View>
-  );
-}
-
-function SpeedControl() {
-  const { c } = useTheme();
-  const { sim, refresh } = useFlight();
-  const { L } = useLang();
-  return (
-    <View style={{ gap: 6 }}>
-      <T size={11.5} weight={600} color={c.ink3} tracking={0.06} style={{ paddingHorizontal: 8 }}>{L('발표용 배속', 'Demo speed')}</T>
-      <Segmented
-        label={L('빨리 감기', 'Speed')}
-        value={sim.speed}
-        onChange={(v) => { sim.setSpeed(v); refresh(); }}
-        options={[{ value: 10, label: '10×' }, { value: 60, label: '60×' }, { value: 300, label: '300×' }]}
-        style={{ alignSelf: 'stretch' }}
-      />
     </View>
   );
 }
@@ -123,7 +104,6 @@ export function Sidebar({ compact }: { compact: boolean }) {
         })}
       </View>
       <View style={{ flex: 1 }} />
-      <SpeedControl />
       <Flow />
     </ScrollView>
   );

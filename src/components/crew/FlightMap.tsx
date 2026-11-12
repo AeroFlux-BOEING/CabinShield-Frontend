@@ -184,7 +184,7 @@ function MapLegend() {
           </View>
         ))}
       </View>
-      <T size={12.5} color={c.ink2}>{L('지도 데이터: Natural Earth · 과거 보고는 데모용 예시 값', 'Map data: Natural Earth · past reports are demo values')}</T>
+      <T size={12.5} color={c.ink2}>{L('지도 데이터: Natural Earth', 'Map data: Natural Earth')}</T>
     </View>
   );
 }

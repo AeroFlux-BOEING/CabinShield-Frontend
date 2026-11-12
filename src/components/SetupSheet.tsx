@@ -129,10 +129,10 @@ export function SetupSheet() {
   let card: { tone: 'idle' | 'ok' | 'warn' | 'bad' | 'busy'; icon: string; title: string; sub: string };
   const wdS = WEEKDAYS[dObj.getDay()][lang];
   const icn = L('인천', 'Seoul');
-  if (look.st === 'idle') card = { tone: 'idle', icon: '✈', title: L('편명을 입력하면 노선이 자동으로 채워집니다', 'Enter a flight number and the route fills in automatically'), sub: L('데모 편명을 눌러 바로 시작할 수 있어요', 'Tap a demo flight to start right away') };
+  if (look.st === 'idle') card = { tone: 'idle', icon: '✈', title: L('편명을 입력하면 노선이 자동으로 채워집니다', 'Enter a flight number and the route fills in automatically'), sub: L('예: AFX017, AFX011, AFX023', 'e.g. AFX017, AFX011, AFX023') };
   else if (look.st === 'busy') card = { tone: 'busy', icon: '↻', title: L('운항 스케줄에서 찾는 중…', 'Searching the schedule…'), sub: no };
   else if (look.st === 'none') card = { tone: 'bad', icon: '?', title: L(`${look.no} 편을 스케줄에서 찾을 수 없습니다`, `${look.no} is not in the schedule`), sub: L('편명을 다시 확인해 주세요 · 예: AFX017', 'Please check the flight number · e.g. AFX017') };
-  else if (!look.f.supported) card = { tone: 'warn', icon: '!', title: `${look.no} · ${icn} → ${P(look.f.toName)}`, sub: L('이 노선은 데모에서 아직 준비 중입니다. AFX017, AFX011, AFX023으로 시작해 주세요.', 'This route is not ready in the demo yet. Please start with AFX017, AFX011 or AFX023.') };
+  else if (!look.f.supported) card = { tone: 'warn', icon: '!', title: `${look.no} · ${icn} → ${P(look.f.toName)}`, sub: L('이 노선은 아직 지원하지 않습니다. AFX017, AFX011, AFX023으로 시작해 주세요.', 'This route is not supported yet. Please start with AFX017, AFX011 or AFX023.') };
   else if (!dayOk) card = { tone: 'warn', icon: '!', title: L(`${look.no}은 ${dateLabel(dObj, 'ko')}(${wdS})에 운항하지 않아요`, `${look.no} does not operate on ${wdS}, ${dateLabel(dObj, 'en')}`), sub: `${daysText(look.f.days, lang)} · ${L('흐리게 표시된 날짜는 운항하지 않는 날입니다', 'Dimmed dates have no flight')}` };
   else {
     const [a, b] = look.f.dep.split(':').map(Number);
@@ -144,7 +144,7 @@ export function SetupSheet() {
 
   const start = () => {
     if (!canStart || !F) {
-      setErr(!no ? L('편명을 입력해 주세요.', 'Please enter a flight number.') : !F ? L('스케줄에 있는 편명을 입력해 주세요.', 'Please enter a flight number from the schedule.') : !F.supported ? L('이 노선은 데모에서 아직 준비 중입니다.', 'This route is not ready in the demo yet.') : L('선택한 날짜에 운항하지 않는 편입니다.', 'This flight does not operate on the selected date.'));
+      setErr(!no ? L('편명을 입력해 주세요.', 'Please enter a flight number.') : !F ? L('스케줄에 있는 편명을 입력해 주세요.', 'Please enter a flight number from the schedule.') : !F.supported ? L('이 노선은 아직 지원하지 않습니다.', 'This route is not supported yet.') : L('선택한 날짜에 운항하지 않는 편입니다.', 'This flight does not operate on the selected date.'));
       return;
     }
     sim.start({ no: no.trim(), date: dObj, depUtc: utc * 60 });

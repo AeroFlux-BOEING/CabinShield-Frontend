@@ -23,7 +23,7 @@ export function Screen({ title, desc, children }: { title?: string; desc?: strin
         </View>
       ) : null}
       {children}
-      <T size={12} color={c.ink2} align="center">{L('가정 시나리오 데모입니다. 비행 경로, 바람, 흔들림 예보는 모두 시뮬레이션 값이고, 행동 문구는 설명용 예시입니다. 실제 운항에서는 항공사 절차와 조종실 지시를 따릅니다.', 'Demo scenario. Route, winds and turbulence forecasts are simulated and the action texts are examples. In real operations, follow airline procedures and flight deck instructions.')}</T>
+      <T size={12} color={c.ink2} align="center">{L('실제 운항에서는 항공사 절차와 조종실 지시를 우선합니다.', 'In operations, airline procedures and flight deck instructions take precedence.')}</T>
     </ScrollView>
   );
 }
