@@ -2,7 +2,8 @@ import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, TextInput, View, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 
-import { daysText, normaliseFlightNo, SCHEDULE, type ScheduledFlight } from '../domain/schedule';
+import { api, ApiError, apiEnabled } from '../api/client';
+import { daysText, fromApiFlight, normaliseFlightNo, SCHEDULE, type ScheduledFlight } from '../domain/schedule';
 import { dateLabel, monthLabel, WEEKDAYS } from '../i18n/format';
 import { tx, useLang, type Txt } from '../i18n/LangContext';
 import { LangToggle } from './LangToggle';
@@ -16,7 +17,7 @@ import { T } from './ui/T';
 
 const ITEM = 40;
 
-type Lookup = { st: 'idle' } | { st: 'busy' } | { st: 'none'; no: string } | { st: 'found'; no: string; f: ScheduledFlight };
+type Lookup = { st: 'idle' } | { st: 'busy' } | { st: 'none'; no: string } | { st: 'found'; no: string; f: ScheduledFlight; server: boolean };
 
 const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const fromYmd = (s: string) => {
@@ -70,7 +71,7 @@ function Wheel({ count, label, value, onChange, format }: { count: number; label
 
 export function SetupSheet() {
   const { c } = useTheme();
-  const { sim, refresh } = useFlight();
+  const { sim, ground, refresh } = useFlight();
   const { setupOpen, closeSetup } = useUi();
   const router = useRouter();
   const { lang, L, P } = useLang();
@@ -87,16 +88,39 @@ export function SetupSheet() {
   const [look, setLook] = useState<Lookup>({ st: 'idle' });
   const [note, setNote] = useState<Txt | null>(null);
   const [err, setErr] = useState('');
+  const [schedule, setSchedule] = useState<Record<string, ScheduledFlight>>(SCHEDULE);
+
+  // ground schedule (falls back to the bundled one when the server is unreachable)
+  useEffect(() => {
+    if (!apiEnabled || !setupOpen) return;
+    let live = true;
+    api.schedule()
+      .then((rows) => { if (live && rows?.length) setSchedule(Object.fromEntries(rows.map((r) => [r.flight_no, fromApiFlight(r)]))); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [setupOpen]);
 
   useEffect(() => {
     const v = no.trim();
     setErr('');
     if (!v) { setLook({ st: 'idle' }); return; }
     setLook({ st: 'busy' });
-    const id = setTimeout(() => {
-      const f = SCHEDULE[v];
+    let live = true;
+    const id = setTimeout(async () => {
+      let f: ScheduledFlight | undefined = SCHEDULE[v];
+      let server = false;
+      if (apiEnabled) {
+        try {
+          const r = await api.scheduleLookup(v, date);
+          f = r ? fromApiFlight(r.flight) : f;
+          server = !!r;
+        } catch (e) {
+          if (e instanceof ApiError && e.status === 404) f = undefined;
+        }
+      }
+      if (!live) return;
       if (!f) return setLook({ st: 'none', no: v });
-      setLook({ st: 'found', no: v, f });
+      setLook({ st: 'found', no: v, f, server });
       const [hh, mm] = f.dep.split(':').map(Number);
       setH(hh);
       setM5(Math.round(mm / 5));
@@ -110,7 +134,7 @@ export function SetupSheet() {
         }
       }
     }, 400);
-    return () => clearTimeout(id);
+    return () => { live = false; clearTimeout(id); };
     // date intentionally excluded: only re-run the lookup when the flight number changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [no]);
@@ -137,7 +161,7 @@ export function SetupSheet() {
   else {
     const [a, b] = look.f.dep.split(':').map(Number);
     const arr = ((((a * 60 + b - 540 + look.f.dur) % 1440) + 1440) % 1440 - 480 + 1440) % 1440;
-    card = { tone: 'ok', icon: '✓', title: `${look.no} · ${icn} ${look.f.dep} → ${P(look.f.toName)} ${pad(Math.floor(arr / 60))}:${pad(arr % 60)} ${L('(현지)', '(local)')}`, sub: note ? P(note) : `${look.f.aircraft} · ${daysText(look.f.days, lang)} · ${L('스케줄에서 찾았어요', 'found in schedule')}` };
+    card = { tone: 'ok', icon: '✓', title: `${look.no} · ${icn} ${look.f.dep} → ${P(look.f.toName)} ${pad(Math.floor(arr / 60))}:${pad(arr % 60)} ${L('(현지)', '(local)')}`, sub: note ? P(note) : `${look.f.aircraft} · ${daysText(look.f.days, lang)} · ${look.server ? L('지상 서버 스케줄에서 찾았어요', 'found in ground schedule') : L('스케줄에서 찾았어요', 'found in schedule')}` };
   }
   const toneBg = { idle: c.soft, busy: c.soft, ok: c.okSoft, warn: c.p2Soft, bad: c.p3Soft }[card.tone];
   const toneDot = { idle: c.card, busy: c.card, ok: c.okDot, warn: c.p2Dot, bad: c.p3Dot }[card.tone];
@@ -147,7 +171,8 @@ export function SetupSheet() {
       setErr(!no ? L('편명을 입력해 주세요.', 'Please enter a flight number.') : !F ? L('스케줄에 있는 편명을 입력해 주세요.', 'Please enter a flight number from the schedule.') : !F.supported ? L('이 노선은 아직 지원하지 않습니다.', 'This route is not supported yet.') : L('선택한 날짜에 운항하지 않는 편입니다.', 'This flight does not operate on the selected date.'));
       return;
     }
-    sim.start({ no: no.trim(), date: dObj, depUtc: utc * 60 });
+    sim.start({ no: no.trim(), date: dObj, depUtc: utc * 60, depLocal: `${pad(h)}:${pad(m5 * 5)}` });
+    if (sim.flight) void ground.startFlight(sim.flight);
     if (Platform.OS === 'web' && typeof document !== 'undefined') document.title = `${no.trim()} · CabinShield`;
     refresh();
     closeSetup();
@@ -197,7 +222,7 @@ export function SetupSheet() {
             </View>
           </View>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: -6 }}>
-            {Object.entries(SCHEDULE).map(([k, v]) => (
+            {Object.entries(schedule).map(([k, v]) => (
               <Pressable key={k} onPress={() => setNo(k)} style={({ pressed }) => ({ flexDirection: 'row', gap: 5, alignItems: 'baseline', paddingHorizontal: 11, paddingVertical: 6, borderRadius: 999, backgroundColor: pressed ? c.navySoft : c.soft })}>
                 <T size={12.5} weight={600}>{k}</T>
                 <T size={11.5} color={c.ink2}>{`${v.from}→${v.to}`}</T>

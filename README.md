@@ -62,6 +62,21 @@ src/
 `src/components/{CabinTwin,Floorplan,PlaceholderView,PlanChart,PlaneArt}.tsx`, `src/components/ui/{DashedRule,Grid,Verdict}.tsx`,
 `src/domain/{constants,kernel,types}.ts`, `src/state/ScenarioContext.tsx`, `src/hooks/usePngExport.ts`
 
+## 지상 서버 연결 (CabinShield-Backend)
+
+`.env.example`을 `.env.local`로 복사하고 `EXPO_PUBLIC_API_URL`을 설정하면 [CabinShield-Backend](../CabinShield-Backend)와 연결됩니다.
+비워 두면 지금처럼 앱 안의 데이터만으로 오프라인 동작합니다. 실기기/시뮬레이터에서는 `localhost` 대신 PC의 LAN IP를 쓰세요.
+
+| 시점 | 호출 | 코드 |
+|---|---|---|
+| 비행편 시작 시트 | `GET /schedule`, `GET /schedule/{편명}?date=` (실패 시 내장 스케줄) | `components/SetupSheet.tsx` |
+| 시작하기 | `POST /flights` → `GET /flights/{id}/briefing` → 예보·과거 보고 교체 | `state/GroundLink.ts` |
+| 비행 중 | `WS /ws/flights/{id}` `FORECAST_UPDATED` → `GET /forecast/{route}?since=` (+1분 폴링) | 〃 |
+| 10초마다 | `POST /flights/{id}/sync` (log · checklist · point · cabin · link · decision 큐, 끊기면 쌓아뒀다 전송) | 〃 |
+
+판단은 계속 태블릿이 합니다. 포인트 단계가 바뀔 때마다 온디바이스 AI 판단을 `decision`으로 올려 지상 Safety Kernel이 재검증하고,
+결과(일치 건수)는 **상태 · 기록 → 정보 상태** 카드에 표시됩니다. `EXPO_PUBLIC_*` 값은 앱 번들에 그대로 들어가므로 API 키는 데모용으로만 쓰세요.
+
 ## 배포 (Web)
 
 `vercel.json` 포함: Vercel에서 이 저장소를 연결하면 `expo export -p web` → `dist/`가 배포됩니다.

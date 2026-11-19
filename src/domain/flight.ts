@@ -3,7 +3,7 @@
  * All values are illustrative demo values, not operational data.
  */
 import { tx, type Txt } from '../i18n/LangContext';
-import { D2R, destination, posAt, ROUTE_NM, trackAt, type LatLon } from './geo';
+import { D2R, destination, lon360, posAt, ROUTE_NM, trackAt, type LatLon } from './geo';
 
 /** Mean planning ground speed (kt) used for ETAs and far-ahead timing. */
 export const PLAN_GS = 492;
@@ -42,6 +42,16 @@ export interface Hazard {
   tRef: number;
   /** polygon vertices in nm offsets from the centre */
   v: [number, number][];
+  /** server id (HZ1 …) when the forecast came from the ground API */
+  id?: string;
+  /** minimum intensity anywhere inside (SEV SIGMET → 3) */
+  floor?: number;
+  /** drift direction (deg true, default 90 = east) */
+  dir?: number;
+  /** active window in sim seconds (live areas) */
+  tFrom?: number;
+  tTo?: number;
+  source?: string;
 }
 
 /** Strength labels for ring 1–3. */
@@ -54,22 +64,67 @@ const DEFS = [
   { name: tx('오클랜드 해양 · 미국 서해안 앞', 'Oakland Oceanic · off the US West Coast'), fl: [280, 400] as [number, number], f: 0.81, off: -85, r: 110, kt: 15, shape: [1.1, 0.9, 1, 0.8, 1.15, 1.05, 0.9, 1] },
 ];
 
-export const HAZARDS: Hazard[] = DEFS.map((h, idx) => {
+const shapeVerts = (r: number, shape: number[]) =>
+  shape.map((sc, k) => {
+    const a = k * 45 * D2R;
+    return [r * sc * Math.sin(a), r * sc * Math.cos(a)] as [number, number];
+  });
+
+const routeAnchored = (h: (typeof DEFS)[number], idx: number): Hazard => {
   const dr = h.f * ROUTE_NM;
-  return {
-    ...h,
-    idx,
-    c0: destination(posAt(dr), trackAt(dr) - 90, h.off),
-    tRef: timeForDistance(dr),
-    v: h.shape.map((s, k) => {
-      const a = k * 45 * D2R;
-      return [h.r * s * Math.sin(a), h.r * s * Math.cos(a)] as [number, number];
-    }),
-  };
-});
+  return { ...h, idx, c0: destination(posAt(dr), trackAt(dr) - 90, h.off), tRef: timeForDistance(dr), v: shapeVerts(h.r, h.shape) };
+};
+
+/** Current forecast. Mutated in place by `setForecast` when a newer one arrives from the ground. */
+export const HAZARDS: Hazard[] = DEFS.map(routeAnchored);
+
+/** Forecast area as published by the ground API (see src/api/types.ts ApiHazard). */
+export interface HazardSpec {
+  id: string;
+  name: Txt;
+  fl: [number, number];
+  f: number;
+  off_nm: number;
+  r_nm: number;
+  drift_kt: number;
+  shape: number[];
+  source?: string;
+  centre_ll?: { lat: number; lon: number };
+  t_obs_utc?: string;
+  vertices_nm?: [number, number][];
+  floor?: number;
+  drift_dir_deg?: number;
+  valid_from_utc?: string;
+  valid_to_utc?: string;
+}
+
+/**
+ * Replace the forecast with a ground one. Live areas (absolute centre + observation time) are
+ * replayed so the observation lands at sim time `tNow`, like the server's default CS_WX_TIME_MODE=replay.
+ */
+export function setForecast(specs: HazardSpec[], tNow: number) {
+  const ms = (iso?: string) => (iso ? Date.parse(iso) : NaN);
+  const next = specs.map((s, idx): Hazard => {
+    const base = routeAnchored({ name: s.name, fl: s.fl, f: s.f, off: s.off_nm, r: s.r_nm, kt: s.drift_kt, shape: s.shape.length === 8 ? s.shape : [1, 1, 1, 1, 1, 1, 1, 1] }, idx);
+    const h: Hazard = { ...base, id: s.id, floor: s.floor ?? 0, dir: s.drift_dir_deg ?? 90, source: s.source };
+    if (s.vertices_nm?.length) h.v = s.vertices_nm.map(([x, y]) => [x, y] as [number, number]);
+    if (s.centre_ll) {
+      h.c0 = { lat: s.centre_ll.lat, lon: lon360(s.centre_ll.lon) };
+      h.tRef = tNow;
+      const obs = Number.isFinite(ms(s.t_obs_utc)) ? ms(s.t_obs_utc) : Date.now();
+      const rel = (iso?: string) => (Number.isFinite(ms(iso)) ? tNow + (ms(iso) - obs) / 1000 : undefined);
+      h.tFrom = rel(s.valid_from_utc);
+      h.tTo = rel(s.valid_to_utc);
+    }
+    return h;
+  });
+  HAZARDS.splice(0, HAZARDS.length, ...next);
+}
+
+const active = (h: Hazard, t: number) => (h.tFrom == null || t >= h.tFrom) && (h.tTo == null || t <= h.tTo);
 
 /** Centre of a hazard at sim time t (drifts east). */
-export const hazardCentre = (h: Hazard, t: number) => destination(h.c0, 90, (h.kt * (t - h.tRef)) / 3600);
+export const hazardCentre = (h: Hazard, t: number) => destination(h.c0, h.dir ?? 90, (h.kt * (t - h.tRef)) / 3600);
 
 function pointInPoly(v: [number, number][], x: number, y: number) {
   let r = false;
@@ -86,7 +141,7 @@ export function ringOf(h: Hazard, c: LatLon, p: LatLon): number {
   if (dl > 180) dl -= 360;
   if (dl < -180) dl += 360;
   const x = dl * 60 * Math.cos(c.lat * D2R), y = (p.lat - c.lat) * 60;
-  for (let k = 3; k >= 1; k--) if (pointInPoly(h.v, x / RING[k - 1], y / RING[k - 1])) return k;
+  for (let k = 3; k >= 1; k--) if (pointInPoly(h.v, x / RING[k - 1], y / RING[k - 1])) return Math.max(k, h.floor ?? 0);
   return 0;
 }
 
@@ -96,7 +151,7 @@ function levelAt(d0: number, t0: number, gs: number, s: number): { h: Hazard | n
   const p = posAt(d), fl = flightLevel(d);
   let best: { h: Hazard | null; k: number } = { h: null, k: 0 };
   for (const h of HAZARDS) {
-    if (fl < h.fl[0] || fl > h.fl[1]) continue;
+    if (fl < h.fl[0] || fl > h.fl[1] || !active(h, t0 + s)) continue;
     const k = ringOf(h, hazardCentre(h, t0 + s), p);
     if (k > best.k) best = { h, k };
   }
@@ -153,7 +208,7 @@ export function exposures(estD: number, t: number): Exposure[] {
     const tt = t + ((d - estD) / PLAN_GS) * 3600, p = posAt(d), fl = flightLevel(d);
     let k = 0, hh: Hazard | null = null;
     for (const h of HAZARDS) {
-      if (fl < h.fl[0] || fl > h.fl[1]) continue;
+      if (fl < h.fl[0] || fl > h.fl[1] || !active(h, tt)) continue;
       const r = ringOf(h, hazardCentre(h, tt), p);
       if (r > k) { k = r; hh = h; }
     }

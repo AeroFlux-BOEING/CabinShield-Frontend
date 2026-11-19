@@ -20,7 +20,17 @@ export interface FlightInfo {
   date: Date;
   /** departure, seconds after 00:00 UTC */
   depUtc: number;
+  /** departure, Korea time HH:MM */
+  depLocal?: string;
 }
+
+/** Things the tablet records for the ground (queued and uploaded by GroundLink). */
+export type SimEvent =
+  | { kind: 'log'; payload: { msg: Txt } }
+  | { kind: 'checklist'; payload: { point: number; index: number; done: boolean } }
+  | { kind: 'point'; payload: { point: number } }
+  | { kind: 'cabin'; payload: CabinActions }
+  | { kind: 'link'; payload: { aid: boolean; sat: boolean } };
 
 export interface LogEntry {
   t: number;
@@ -56,6 +66,12 @@ export class FlightSim {
   private forecastHazard: unknown = null;
   private started = false;
   onToast: ((msg: Txt) => void) | null = null;
+  /** set by GroundLink; called for every event worth sending to the ground */
+  onEvent: ((e: SimEvent) => void) | null = null;
+  /** forecast version this tablet holds (0 = bundled demo forecast) */
+  forecastVersion = 0;
+  /** true when GroundLink owns `sat` / `lastUplink` (real server); false = local demo uplink every 15 min */
+  groundManaged = false;
 
   constructor() {
     this.reset();
@@ -115,6 +131,18 @@ export class FlightSim {
   addLog(msg: Txt) {
     this.log.unshift({ t: this.t, msg });
     if (this.log.length > 60) this.log.pop();
+    this.onEvent?.({ kind: 'log', payload: { msg } });
+  }
+
+  /** A newer forecast arrived over the ground link. */
+  forecastUplinked(version: number) {
+    this.forecastVersion = version;
+    this.lastUplink = this.t;
+    this.forecastHazard = null;
+    if (this.flight) {
+      this.evaluate();
+      this.updatePlan(true);
+    }
   }
 
   private toast(msg: Txt) {
@@ -135,7 +163,7 @@ export class FlightSim {
       this.estD = Math.min(ROUTE_NM, this.estD + (this.gsEst * dt) / 3600);
       this.sigma = 0.2 + 0.02 * (this.estD - this.lossD);
     }
-    if (this.sat && this.t - this.lastUplink >= 900) this.lastUplink = this.t;
+    if (this.sat && !this.groundManaged && this.t - this.lastUplink >= 900) this.lastUplink = this.t;
     if (this.d >= ROUTE_NM && !this.arrived) {
       this.arrived = true;
       this.running = false;
@@ -182,7 +210,10 @@ export class FlightSim {
       this.addLog(tx(`${g}포인트 시작 · ${P.name.ko} · 구간 진입 ${m.ko} 전`, `Point ${g} started · ${P.name.en} · ${m.en} before the segment`));
       this.toast(tx(`${g}포인트 · ${P.name.ko} 단계가 시작됐어요`, `Point ${g} · ${P.name.en} has started`));
     }
-    if (g !== this.g) this.done = {};
+    if (g !== this.g) {
+      this.done = {};
+      if (this.started) this.onEvent?.({ kind: 'point', payload: { point: g } });
+    }
     this.g = g;
     const svc = this.plan?.find((v) => v.start != null && v.end != null && this.t >= v.start && this.t < v.end)?.id ?? null;
     if (svc !== this.lastService) {
@@ -223,7 +254,9 @@ export class FlightSim {
       const next = { ...this.cabin };
       for (const k of keys) next[k] = on;
       this.cabin = next;
+      this.onEvent?.({ kind: 'cabin', payload: next });
     }
+    this.onEvent?.({ kind: 'checklist', payload: { point: this.cur > 0 ? 3 : this.g, index: i, done: on } });
   }
 
   /** Conservative time available before the segment (s): TTA − 1.28σ. 0 inside, null when nothing ahead. */

@@ -19,6 +19,25 @@ function Status({ ok, title, text }: { ok: boolean; title: string; text: string 
   );
 }
 
+function GroundStatus() {
+  const { ground: g, sim } = useFlight();
+  const { L, P } = useLang();
+  if (!g.enabled) return null;
+  const pending = g.queue.length;
+  const synced = g.lastSyncT != null ? Math.max(0, Math.round(sim.t - g.lastSyncT)) : null;
+  const audit = g.audit.total ? L(` · AI 판단 지상 검증 ${g.audit.agree}/${g.audit.total} 일치`, ` · ground AI check ${g.audit.agree}/${g.audit.total} agree`) : '';
+  const fc = sim.forecastVersion ? L(`예보 v${sim.forecastVersion}`, `forecast v${sim.forecastVersion}`) : L('기본 예보', 'bundled forecast');
+  if (g.state === 'online')
+    return (
+      <Status ok title={L('지상 서버 연결됨', 'Ground server connected')}
+        text={`${g.flightId ?? L('비행편 시작 전', 'no flight yet')} · ${fc} · ${g.wsOpen ? L('실시간 수신 중', 'live stream on') : L('주기적 확인', 'polling')} · ${synced != null ? L(`${synced}초 전 동기화`, `synced ${synced}s ago`) : L('동기화 대기', 'not synced yet')}${pending ? L(` · 보낼 기록 ${pending}건`, ` · ${pending} queued`) : ''}${audit}`} />
+    );
+  return (
+    <Status ok={false} title={g.state === 'connecting' ? L('지상 서버 연결 중…', 'Connecting to ground server…') : L('지상 서버 연결 안 됨', 'Ground server unreachable')}
+      text={`${g.lastError ? P(g.lastError) + ' · ' : ''}${L(`태블릿 데이터로 계속 판단합니다 · 보낼 기록 ${pending}건`, `Continuing on tablet data · ${pending} records queued`)}`} />
+  );
+}
+
 export function StatusCard() {
   const { sim } = useFlight();
   const { L } = useLang();
@@ -37,6 +56,7 @@ export function StatusCard() {
       ) : (
         <Status ok={false} title={L('지상 연결 끊김', 'Ground link lost')} text={L(`흔들림 예보가 ${age}분 전 것입니다. 이 태블릿이 계속 판단하고, 연결되면 기록을 한꺼번에 보냅니다.`, `Forecast is ${age} min old. The tablet keeps deciding on its own and sends the log once reconnected.`)} />
       )}
+      <GroundStatus />
     </Card>
   );
 }

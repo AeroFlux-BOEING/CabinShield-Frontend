@@ -92,6 +92,15 @@ export const HISTORY: HistSegment[] = [
   { f0: 0.79, f1: 0.86, name: tx('미국 서해안 앞바다', 'Off the US West Coast'), cases: 9, band: [300, 360] as [number, number], pattern: tx('해안 제트 · 대류운', 'Coastal jet · convection'), sev: tx('약함 위주', 'Mostly light'), season: tx('봄·가을', 'Spring and autumn') },
 ].map(({ f0, f1, ...h }) => ({ ...h, d0: f0 * ROUTE_NM, d1: f1 * ROUTE_NM }));
 
+/** Replace the demo history with the ground server's (route reports + crew reports + live PIREPs). */
+export function setHistory(items: { d0_nm: number; d1_nm: number; name: Txt; cases: number; fl_band: [number, number]; pattern: Txt; severity: Txt; season: Txt }[]) {
+  if (!items.length) return;
+  const next = items
+    .map((h): HistSegment => ({ d0: h.d0_nm, d1: h.d1_nm, name: h.name, cases: h.cases, band: h.fl_band, pattern: h.pattern, sev: h.severity, season: h.season }))
+    .sort((a, b) => a.d0 - b.d0);
+  HISTORY.splice(0, HISTORY.length, ...next);
+}
+
 /** [name, lat, lon(0–360), isCity] */
 export const PLACES: [Txt, number, number, boolean][] = [
   [tx('인천', 'Incheon'), 37.46, 126.44, true], [tx('도쿄', 'Tokyo'), 35.68, 139.69, true], [tx('삿포로', 'Sapporo'), 43.06, 141.35, true],

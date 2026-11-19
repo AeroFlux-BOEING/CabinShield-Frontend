@@ -32,3 +32,12 @@ export const daysText = (d: number[], lang: Lang) =>
     : WEEKDAYS.filter((_, i) => d.includes(i)).map((w) => w[lang]).join(lang === 'ko' ? '·' : ' · ') + (lang === 'ko' ? ' 운항' : '');
 
 export const normaliseFlightNo = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+
+/** Ground API schedule row (src/api/types.ts ApiScheduledFlight) → app shape. */
+export const fromApiFlight = (f: {
+  origin: string; destination: string; destination_name: Txt; dep_local: string; block_min: number;
+  aircraft: string; aircraft_note: Txt; days: number[]; supported: boolean;
+}): ScheduledFlight => ({
+  from: f.origin, to: f.destination, toName: f.destination_name, dep: f.dep_local, dur: f.block_min,
+  aircraft: f.aircraft, aircraftNote: f.aircraft_note, days: f.days, supported: f.supported,
+});
