@@ -153,15 +153,15 @@ export function SetupSheet() {
   let card: { tone: 'idle' | 'ok' | 'warn' | 'bad' | 'busy'; icon: string; title: string; sub: string };
   const wdS = WEEKDAYS[dObj.getDay()][lang];
   const icn = L('인천', 'Seoul');
-  if (look.st === 'idle') card = { tone: 'idle', icon: '✈', title: L('편명을 입력하면 노선이 자동으로 채워집니다', 'Enter a flight number and the route fills in automatically'), sub: L('예: AFX017, AFX011, AFX023', 'e.g. AFX017, AFX011, AFX023') };
+  if (look.st === 'idle') card = { tone: 'idle', icon: '✈', title: L('편명을 입력하거나 아래에서 골라 주세요', 'Enter a flight number or pick one below'), sub: L('실제 인천→샌프란시스코 항공편: KE023, UA892, OZ212 · 데모 편명: AFX017', 'Real Seoul→San Francisco flights: KE023, UA892, OZ212 · demo: AFX017') };
   else if (look.st === 'busy') card = { tone: 'busy', icon: '↻', title: L('운항 스케줄에서 찾는 중…', 'Searching the schedule…'), sub: no };
-  else if (look.st === 'none') card = { tone: 'bad', icon: '?', title: L(`${look.no} 편을 스케줄에서 찾을 수 없습니다`, `${look.no} is not in the schedule`), sub: L('편명을 다시 확인해 주세요 · 예: AFX017', 'Please check the flight number · e.g. AFX017') };
-  else if (!look.f.supported) card = { tone: 'warn', icon: '!', title: `${look.no} · ${icn} → ${P(look.f.toName)}`, sub: L('이 노선은 아직 지원하지 않습니다. AFX017, AFX011, AFX023으로 시작해 주세요.', 'This route is not supported yet. Please start with AFX017, AFX011 or AFX023.') };
+  else if (look.st === 'none') card = { tone: 'bad', icon: '?', title: L(`${look.no} 편을 스케줄에서 찾을 수 없습니다`, `${look.no} is not in the schedule`), sub: L('편명을 다시 확인해 주세요 · 예: KE023, UA892, OZ212', 'Please check the flight number · e.g. KE023, UA892, OZ212') };
+  else if (!look.f.supported) card = { tone: 'warn', icon: '!', title: `${look.no} · ${icn} → ${P(look.f.toName)}`, sub: L('이 노선은 아직 지원하지 않습니다. 인천→샌프란시스코 항공편(KE023, UA892, OZ212 등)으로 시작해 주세요.', 'This route is not supported yet. Please start with a Seoul→San Francisco flight (KE023, UA892, OZ212…).') };
   else if (!dayOk) card = { tone: 'warn', icon: '!', title: L(`${look.no}은 ${dateLabel(dObj, 'ko')}(${wdS})에 운항하지 않아요`, `${look.no} does not operate on ${wdS}, ${dateLabel(dObj, 'en')}`), sub: `${daysText(look.f.days, lang)} · ${L('흐리게 표시된 날짜는 운항하지 않는 날입니다', 'Dimmed dates have no flight')}` };
   else {
     const [a, b] = look.f.dep.split(':').map(Number);
     const arr = ((((a * 60 + b - 540 + look.f.dur) % 1440) + 1440) % 1440 - 480 + 1440) % 1440;
-    card = { tone: 'ok', icon: '✓', title: `${look.no} · ${icn} ${look.f.dep} → ${P(look.f.toName)} ${pad(Math.floor(arr / 60))}:${pad(arr % 60)} ${L('(현지)', '(local)')}`, sub: note ? P(note) : `${look.f.aircraft} · ${daysText(look.f.days, lang)} · ${look.server ? L('지상 서버 스케줄에서 찾았어요', 'found in ground schedule') : L('스케줄에서 찾았어요', 'found in schedule')}` };
+    card = { tone: 'ok', icon: '✓', title: `${look.no} · ${icn} ${look.f.dep} → ${P(look.f.toName)} ${pad(Math.floor(arr / 60))}:${pad(arr % 60)} ${L('(현지)', '(local)')}`, sub: note ? P(note) : `${look.f.airline ? `${P(look.f.airline)} · ` : ''}${look.f.aircraft} · ${daysText(look.f.days, lang)} · ${look.f.real ? L('실제 운항 스케줄 기준', 'published airline schedule') : L('데모 편명', 'demo flight')}${look.server ? L(' · 지상 서버 확인', ' · ground-checked') : ''}` };
   }
   const toneBg = { idle: c.soft, busy: c.soft, ok: c.okSoft, warn: c.p2Soft, bad: c.p3Soft }[card.tone];
   const toneDot = { idle: c.card, busy: c.card, ok: c.okDot, warn: c.p2Dot, bad: c.p3Dot }[card.tone];
@@ -201,7 +201,7 @@ export function SetupSheet() {
             <TextInput
               value={no}
               onChangeText={(t) => setNo(normaliseFlightNo(t))}
-              placeholder={L('예: AFX017', 'e.g. AFX017')}
+              placeholder={L('예: KE023', 'e.g. KE023')}
               placeholderTextColor={c.ink3}
               autoCapitalize="characters"
               autoCorrect={false}
@@ -221,14 +221,22 @@ export function SetupSheet() {
               <T size={12.5} color={c.ink2}>{card.sub}</T>
             </View>
           </View>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: -6 }}>
-            {Object.entries(schedule).map(([k, v]) => (
-              <Pressable key={k} onPress={() => setNo(k)} style={({ pressed }) => ({ flexDirection: 'row', gap: 5, alignItems: 'baseline', paddingHorizontal: 11, paddingVertical: 6, borderRadius: 999, backgroundColor: pressed ? c.navySoft : c.soft })}>
-                <T size={12.5} weight={600}>{k}</T>
-                <T size={11.5} color={c.ink2}>{`${v.from}→${v.to}`}</T>
-              </Pressable>
-            ))}
-          </View>
+          {[
+            { title: L('실제 항공편 · 인천 → 샌프란시스코', 'Real flights · Seoul → San Francisco'), rows: Object.entries(schedule).filter(([, v]) => v.real) },
+            { title: L('데모 편명', 'Demo flights'), rows: Object.entries(schedule).filter(([, v]) => !v.real) },
+          ].filter((g) => g.rows.length).map((g) => (
+            <View key={g.title} style={{ gap: 6, marginTop: -6 }}>
+              <T size={12} weight={600} color={c.ink3}>{g.title}</T>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                {g.rows.map(([k, v]) => (
+                  <Pressable key={k} accessibilityLabel={`${k} ${v.airline ? P(v.airline) : ''} ${v.dep}`} onPress={() => setNo(k)} style={({ pressed }) => ({ flexDirection: 'row', gap: 5, alignItems: 'baseline', paddingHorizontal: 11, paddingVertical: 6, borderRadius: 999, backgroundColor: no === k ? c.navySoft : pressed ? c.navySoft : c.soft })}>
+                    <T size={12.5} weight={600}>{k}</T>
+                    <T size={11.5} color={c.ink2}>{v.real ? `${v.airline ? P(v.airline) : ''} ${v.dep}` : `${v.from}→${v.to}`}</T>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          ))}
 
           <View style={{ gap: 6 }}>
             <T size={13} weight={600} color={c.ink2}>{L('운항일', 'Date')}</T>
@@ -283,7 +291,7 @@ export function SetupSheet() {
           <View style={{ flexDirection: 'row', gap: 12 }}>
             {[
               [L('노선', 'Route'), F ? `${icn} ${F.from} → ${P(F.toName)} ${F.to}` : null, F ? L(`스케줄 ${F.dep} 출발 · 약 ${Math.floor(F.dur / 60)}시간 ${F.dur % 60}분`, `Scheduled ${F.dep} · about ${Math.floor(F.dur / 60)}h ${F.dur % 60}m`) : ''],
-              [L('기종', 'Aircraft'), F ? F.aircraft : null, F ? P(F.aircraftNote) : ''],
+              [L('기종', 'Aircraft'), F ? `${F.airline ? `${P(F.airline)} · ` : ''}${F.aircraft}` : null, F ? P(F.aircraftNote) : ''],
             ].map(([k, v, s]) => (
               <View key={k as string} style={{ flex: 1, gap: 6 }}>
                 <T size={13} weight={600} color={c.ink2}>{k}</T>

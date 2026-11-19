@@ -18,6 +18,10 @@ export interface ApiScheduledFlight {
   days: number[];
   supported: boolean;
   route_id: string;
+  /** operating airline (real flights only) */
+  airline?: Txt | null;
+  /** a real, published flight (vs. a fictional AFX demo flight) */
+  real?: boolean;
 }
 
 export interface ApiScheduleLookup {
