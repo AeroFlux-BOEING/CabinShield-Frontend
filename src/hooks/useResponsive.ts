@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react';
 import { useWindowDimensions } from 'react-native';
 
-/** Width of the app canvas (the iPad frame on wide web screens, otherwise the window). */
+/** Optional override of the app canvas width (defaults to the window width). */
 export const CanvasWidth = createContext<number | null>(null);
 
 export function useResponsive() {

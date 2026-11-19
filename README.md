@@ -24,7 +24,7 @@ npm run build:web    # dist/ 로 웹 정적 빌드
 ```
 src/
   app/                    # Expo Router — 파일 = 화면
-    _layout.tsx           # Provider, 사이드바 + 화면 셸, 넓은 웹 화면에서는 iPad 프레임
+    _layout.tsx           # Provider, 사이드바 + 화면 셸 (항상 전체 화면, 기기 프레임 없음)
     overview.tsx          # 운항 현황: 전체 비행, 포인트 배너, 지도, 비행 정보 ↔ 지금 할 일, 과거 데이터, AI 인사이트
     points.tsx            # 포인트 · 구역: 1·2·3포인트 가이드, 구역 일정
     cabin.tsx             # 객실 · 서비스: 승무원 상태, 서비스 계획(자동 조정)
